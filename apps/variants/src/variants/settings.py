@@ -16,4 +16,4 @@
 DJANGO_APPS = [ "variants" ]
 REQUIRES_HADOOP = False
 MENU_INDEX = 100
-ICON = "/variants/static/art/icon_genomicAPI_48.png"
+ICON = "variants/static/art/icon_genomicAPI_48.png"

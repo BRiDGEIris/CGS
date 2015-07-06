@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-from django.conf.urls.defaults import patterns, url
+try: # Django < 1.5
+    from django.conf.urls.defaults import patterns, url
+except: # Django >= 1.6
+    from django.conf.urls import patterns, url
 
 """
     Some rules:
