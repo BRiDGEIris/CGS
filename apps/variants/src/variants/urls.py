@@ -5,6 +5,10 @@ try: # Django < 1.5
 except: # Django >= 1.6
     from django.conf.urls import patterns, url
 
+from rest_framework.urlpatterns import format_suffix_patterns
+from variants import views
+
+
 """
     Some rules:
      <PART>/<OPERATION>/ -> <PART>_<OPERATION> -> For API

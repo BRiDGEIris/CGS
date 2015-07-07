@@ -31,6 +31,14 @@ from hadoop.fs.hadoopfs import Hdfs
 from django.template.defaultfilters import stringformat, filesizeformat
 from filebrowser.lib.rwx import filetype, rwx
 
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import routers, serializers, viewsets
+from django.contrib.auth.decorators import user_passes_test, login_required
+from django.http import Http404, HttpResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
 from variants import api
 
 
@@ -38,6 +46,25 @@ def index(request):
     """ Display the first page of the application """
 
     return render('index.mako', request, locals())
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+    OLD CODE
+"""
+
+
+
+
 
 @csrf_exempt
 def query_index_interface(request):
