@@ -48,22 +48,50 @@ def index(request):
     return render('index.mako', request, locals())
 
 
+class VCFDetail(APIView):
+    """
+        This view allow to have information about a specific user, create a new one, etc.
+    """
+    def get(self, request, pk=-1):
+        result = {'value':True,'text':'Everything is alright.'}
+
+        # Basic verifications
+        try:
+            pk = int(pk)
+            if pk < 0:
+                result['value'] = False
+                result['text'] = 'Invalid pk'
+        except:
+            result['value'] = False
+            result['text'] = 'Invalid pk'
+
+        if result['value'] is False:
+            return HttpResponse(json.dumps(result), content_type="application/json")
+
+        # We get the information and format the result (TODO)
+        #p = VCF.objects.get(pk=pk)
+        #result = VCFSerializer(p, context={'request': request})
+
+        return Response(result.data)
 
 
+    def post(self, request, format=None):
+        """
+            Receive a new vcf to analyze
+        :param request:
+        :param format:
+        :return:
+        """
+        result = {'value':True,'text':'Everything is alright.'}
+        # TODO
 
-
-
-
-
-
+        result = {'value':False,'text':'Something went wrong.'}
+        return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
 """
-    OLD CODE
+    The code below needs some refactoring
 """
-
-
-
 
 
 @csrf_exempt

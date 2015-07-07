@@ -24,7 +24,13 @@ LOG = logging.getLogger(__name__)
 # def current_line():
 #     """ Return the current line number """
 #     return inspect.currentframe().f_back.f_lineno
-  
+
+
+
+
+"""
+    Old code which needs refactoring as it does not use DRF
+"""
 def fprint(txt):
     """ Print some text in a debug file """
     f = open('/home/cloudera/debug.txt', 'a')

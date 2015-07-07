@@ -28,6 +28,7 @@ urlpatterns = patterns('variants',
     #url(r'^docs/', include('rest_framework_swagger.urls')),  
     #url(r'^database/initialize/$', 'views.database_initialize'),
 
+    # The code below needs some refactoring
     url(r'^variants/search$', 'api.variants_search'),
 
     url(r'^sample/insert/interface/$', 'views.sample_insert_interface'),
@@ -41,6 +42,8 @@ urlpatterns = patterns('variants',
     url(r'^variant/search/$', 'views.variant_search'),
     url(r'^variant/import/$', 'views.variant_import'),
 
-  
     url(r'^documentation/$', 'views.documentation'),
+
+    # Importing the data
+    url(r'^api/vcf/$', views.VCFDetail.as_view(),name='vcf-detail')
 )
