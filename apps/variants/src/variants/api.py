@@ -298,10 +298,10 @@ class VariantDetail(APIView):
 
         return Response(result)
 
-## callsets
-@api_error_handler
-def callsets_get(request):
-    """ Gets a call set by ID
-    """
 
-    pass
+class CallSetDetail(APIView):
+
+    def get(self, request, pk=-1):
+        # Information on a specific callset
+        result = {'status':1,'text':'Everything is alright.'}
+        return Response(result)
