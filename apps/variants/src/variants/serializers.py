@@ -13,3 +13,15 @@ class SampleSerializer(serializers.Serializer):
 
 class DatasetSerializer(serializers.Serializer):
     pass
+
+class ReadGroupSetSerializer(serializers.Serializer):
+    pass
+
+class VariantSetSerializer(serializers.Serializer):
+    pass
+
+class VariantSerializer(serializers.Serializer):
+    pass
+
+class CallSetSerializer(serializers.Serializer):
+    pass
