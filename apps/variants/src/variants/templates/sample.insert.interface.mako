@@ -19,7 +19,7 @@ $(document).ready(function () {
                 % endfor
             % endif
             ];
-    var container = document.getElementById('example'),
+    var container = document.getElementById('variants-info'),
     hot;
 
     hot = new Handsontable(container, {
@@ -143,7 +143,7 @@ ${shared.menubar(section='sample')}
 
                             <br/>
                         <div style="display:inline-block;max-width:95%;min-height:200px;max-height:500px;overflow: scroll;">
-                            <div id="example" class="handsontable"></div>
+                            <div id="variants-info" class="handsontable"></div>
                        </div>
                         <br/><br/>
                         <input type="text" value="" id="vcf_data" name="vcf_data" style="display:none"/>

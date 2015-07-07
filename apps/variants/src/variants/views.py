@@ -31,62 +31,16 @@ from hadoop.fs.hadoopfs import Hdfs
 from django.template.defaultfilters import stringformat, filesizeformat
 from filebrowser.lib.rwx import filetype, rwx
 
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import routers, serializers, viewsets
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.http import Http404, HttpResponse
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 
 from variants import api
-
 
 def index(request):
     """ Display the first page of the application """
 
     return render('index.mako', request, locals())
 
-
-class VCFDetail(APIView):
-    """
-        This view allow to have information about a specific user, create a new one, etc.
-    """
-    def get(self, request, pk=-1):
-        result = {'value':True,'text':'Everything is alright.'}
-
-        # Basic verifications
-        try:
-            pk = int(pk)
-            if pk < 0:
-                result['value'] = False
-                result['text'] = 'Invalid pk'
-        except:
-            result['value'] = False
-            result['text'] = 'Invalid pk'
-
-        if result['value'] is False:
-            return HttpResponse(json.dumps(result), content_type="application/json")
-
-        # We get the information and format the result (TODO)
-        #p = VCF.objects.get(pk=pk)
-        #result = VCFSerializer(p, context={'request': request})
-
-        return Response(result.data)
-
-
-    def post(self, request, format=None):
-        """
-            Receive a new vcf to analyze
-        :param request:
-        :param format:
-        :return:
-        """
-        result = {'value':True,'text':'Everything is alright.'}
-        # TODO
-
-        result = {'value':False,'text':'Something went wrong.'}
-        return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
 """
