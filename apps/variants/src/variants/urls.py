@@ -30,14 +30,14 @@ urlpatterns = patterns('variants',
 
     # Importing the data
     url(r'^api/vcf/$', api.VCFDetail.as_view(),name='vcf-detail'),
-    url(r'^api/variant/$', api.VariantDetail.as_view(),name='variant-detail')
-    url(r'^api/sample/$', api.SampleDetail.as_view(),name='sample-detail')
-    url(r'^api/samples/$', api.SampleList.as_view(),name='sample-list')
-    url(r'^api/dataset/$', api.DatasetDetail.as_view(),name='dataset-detail')
-    url(r'^api/datasets/$', api.DatasetList.as_view(),name='dataset-list')
-    url(r'^api/readgroupset/$', api.ReadGroupSetDetail.as_view(),name='readgroupset-detail')
-    url(r'^api/variantset/$', api.VariantSetDetail.as_view(),name='variantset-detail')
-    url(r'^api/callset/$', api.CallSetDetail.as_view(),name='callset-detail')
+    url(r'^api/variant/$', api.VariantDetail.as_view(),name='variant-detail'),
+    url(r'^api/sample/$', api.SampleDetail.as_view(),name='sample-detail'),
+    url(r'^api/samples/$', api.SampleList.as_view(),name='sample-list'),
+    url(r'^api/dataset/$', api.DatasetDetail.as_view(),name='dataset-detail'),
+    url(r'^api/datasets/$', api.DatasetList.as_view(),name='dataset-list'),
+    url(r'^api/readgroupset/$', api.ReadGroupSetDetail.as_view(),name='readgroupset-detail'),
+    url(r'^api/variantset/$', api.VariantSetDetail.as_view(),name='variantset-detail'),
+    url(r'^api/callset/$', api.CallSetDetail.as_view(),name='callset-detail'),
 
     # Interface
     url(r'^sample/insert/interface/$', 'views.sample_insert_interface'),
