@@ -2,15 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants.egg-info/SOURCES.txt" afterPath="$PROJECT_DIR$/apps/variants/src/variants.egg-info/SOURCES.txt" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/installCGSapps.py" afterPath="$PROJECT_DIR$/installCGSapps.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/installForTest.py" afterPath="$PROJECT_DIR$/installForTest.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/templates/query.index.interface.mako" afterPath="$PROJECT_DIR$/apps/variants/src/variants/templates/query.index.interface.mako" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" afterPath="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.insert.interface.mako" afterPath="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.insert.interface.mako" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/settings.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/settings.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/setup.py" afterPath="$PROJECT_DIR$/apps/variants/setup.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="cgs-apps.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -47,8 +39,8 @@
       <file leaf-file-name="sample.insert.interface.mako" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.insert.interface.mako">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.061058346" vertical-offset="0" max-vertical-offset="2475">
-              <caret line="3" column="14" selection-start-line="3" selection-start-column="14" selection-end-line="3" selection-end-column="14" />
+            <state vertical-scroll-proportion="0.24423338" vertical-offset="0" max-vertical-offset="2475">
+              <caret line="12" column="16" selection-start-line="12" selection-start-column="16" selection-end-line="12" selection-end-column="16" />
               <folding />
             </state>
           </provider>
@@ -855,8 +847,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.insert.interface.mako">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.061058346" vertical-offset="0" max-vertical-offset="2475">
-          <caret line="3" column="14" selection-start-line="3" selection-start-column="14" selection-end-line="3" selection-end-column="14" />
+        <state vertical-scroll-proportion="0.24423338" vertical-offset="0" max-vertical-offset="2475">
+          <caret line="12" column="16" selection-start-line="12" selection-start-column="16" selection-end-line="12" selection-end-column="16" />
           <folding />
         </state>
       </provider>

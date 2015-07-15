@@ -10,7 +10,7 @@
 <link rel="stylesheet" media="screen" href="/static/css/pikaday.css">
 <link rel="stylesheet" media="screen" href="/static/css/samples.css">
 
-<script>
+<script><!-- -->
 $(document).ready(function () {
     var data = [
             % if not error_sample and not error_get:
