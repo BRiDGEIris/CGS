@@ -1,14 +1,14 @@
 <%!from desktop.views import commonheader, commonfooter %>
 <%namespace name="shared" file="shared_components.mako" />
 
-<script src="/variants/static/js/jquery-1.11.1.min.js"></script>
+<script src="/static/js/jquery-1.11.1.min.js"></script>
 
-<script src="/variants/static/js/handsontable.full.js"></script>
-<script src="/variants/static/js/moment.js"></script>
-<script src="/variants/static/js/pikaday.js"></script>
-<link rel="stylesheet" media="screen" href="/variants/static/css/handsontable.full.css">
-<link rel="stylesheet" media="screen" href="/variants/static/css/pikaday.css">
-<link rel="stylesheet" media="screen" href="/variants/static/css/samples.css">
+<script src="/static/js/handsontable.full.js"></script>
+<script src="/static/js/moment.js"></script>
+<script src="/static/js/pikaday.js"></script>
+<link rel="stylesheet" media="screen" href="/static/css/handsontable.full.css">
+<link rel="stylesheet" media="screen" href="/static/css/pikaday.css">
+<link rel="stylesheet" media="screen" href="/static/css/samples.css">
 
 <script>
 $(document).ready(function () {
@@ -106,8 +106,8 @@ $(document).ready(function () {
 ${commonheader("variants", "variants", user) | n,unicode}
 ${shared.menubar(section='sample')}
 
-<link rel="stylesheet" href="/variants/static/css/variants.css">
-<script src="/variants/static/js/variants.js"></script>
+<link rel="stylesheet" href="/static/css/variants.css">
+<script src="/static/js/variants.bd5f22620867.js"></script>
 
 ## Use double hashes for a mako template comment
 ## Main body

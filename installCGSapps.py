@@ -103,7 +103,7 @@ for i in xrange(1, len(sys.argv)):
 
 # We restart hue
 try:
-    app_install = subprocess.Popen("service hue restart", stdin=False, shell=True, stdout=subprocess.PIPE)
+    app_install = subprocess.Popen("service hue stop && service hue start", stdin=False, shell=True, stdout=subprocess.PIPE)
     app_install.communicate()
 except Exception as e:
     print(e.message)

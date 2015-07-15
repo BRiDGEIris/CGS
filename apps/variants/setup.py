@@ -42,6 +42,6 @@ setup(
     # the files manually.
     'variants': expand_package_data(
       ["src/variants/templates", "src/variants/static", "src/variants/static/variants.css", "src/variants/static/css/variants.css"],
-      "src/variants/")
+      "src/variants/","src/variants/static/css")
   }
 )

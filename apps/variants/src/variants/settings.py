@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 DJANGO_APPS = [ "variants" ]
+NICE_NAME = "CGS"
 REQUIRES_HADOOP = False
 MENU_INDEX = 100
-ICON = "variants/static/art/icon_genomicAPI_48.png"
+#ICON = "variants/static/art/icon_genomicAPI_48.png"
+ICON = "css/variants/art/icon_genomicAPI_48.png"

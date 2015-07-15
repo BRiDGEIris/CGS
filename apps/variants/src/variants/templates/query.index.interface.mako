@@ -4,7 +4,7 @@
 ${commonheader("variants", "variants", user) | n,unicode}
 ${shared.menubar(section='query')}
 
-<link rel="stylesheet" href="/variants/static/css/variants.css">
+<link rel="stylesheet" href="/static/css/variants.css">
 
 ## Use double hashes for a mako template comment
 ## Main body
@@ -42,5 +42,5 @@ ${shared.menubar(section='query')}
     </div>
   </div>
 </div>
-<link rel="stylesheet" href="/variants/static/js/variants.js">
+<script src="/static/js/variants.bd5f22620867.js"></script>
 ${commonfooter(messages) | n,unicode}

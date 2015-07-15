@@ -5,10 +5,13 @@ src/variants/models.py
 src/variants/settings.py
 src/variants/urls.py
 src/variants/views.py
+src/variants/api.py
+src/variants/converters.py
+src/variants/exception.py
+src/variants/vcf.py
 src/variants.egg-info/PKG-INFO
 src/variants.egg-info/SOURCES.txt
 src/variants.egg-info/dependency_links.txt
 src/variants.egg-info/entry_points.txt
-src/variants.egg-info/not-zip-safe
 src/variants.egg-info/requires.txt
 src/variants.egg-info/top_level.txt
