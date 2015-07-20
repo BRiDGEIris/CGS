@@ -26,7 +26,7 @@ urlpatterns = patterns('variants',
     url(r'^$', 'views.index'),
 
     #url(r'^docs/', include('rest_framework_swagger.urls')),  
-    #url(r'^database/initialize/$', 'views.database_initialize'),
+    url(r'^database/initialize/$', 'views.database_initialize'),
 
     # Importing the data
     url(r'^api/vcf/$', api.VCFDetail.as_view(),name='vcf-detail'),

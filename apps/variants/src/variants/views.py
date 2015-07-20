@@ -2,6 +2,8 @@
 
 from desktop.lib.django_util import render
 from django.views.decorators.csrf import csrf_exempt
+from django.core.context_processors import csrf
+from django.middleware.csrf import get_token
 import datetime
 from forms import *
 import pycurl
@@ -46,7 +48,31 @@ def index(request):
 """
     The code below needs some refactoring
 """
+def sample_insert_questions(request):
+    """ Return the questions asked to insert the data """
+    questions = {
+        "sample_registration":{
+            "main_title": "Sample",
+            "original_sample_id": {"question": "Original sample id", "field": "text", "regex": "a-zA-Z0-9_-", "mandatory": True},
+            "patient_id": {"question": "Patient id", "field": "text", "regex": "a-zA-Z0-9_-", "mandatory": True},
+            "biobank_id": {"question": "Biobank id", "field": "text", "regex": "a-zA-Z0-9_-"},
+            "prenatal_id": {"question": "Prenatal id", "field": "text", "regex": "a-zA-Z0-9_-"},
+            "sample_collection_date": {"question": "Date of collection", "field": "date", "regex": "date"},
+            "collection_status": {"question": "Collection status", "field": "select", "fields":("collected","not collected")},
+            "sample_type": {"question": "Sample type", "field": "select", "fields":("serum","something else")},
+            "biological_contamination": {"question": "Biological contamination", "field": "select", "fields":("no","yes")},
+            "sample_storage_condition": {"question": "Storage condition", "field": "select", "fields":("0C","1C","2C","3C","4C")},
+        },
+    }
 
+    # A dict in python is not ordered so we need a list
+    q = ("main_title", "original_sample_id", "patient_id", "biobank_id", "prenatal_id", "sample_collection_date", "collection_status", "sample_type",
+        "biological_contamination", "sample_storage_condition")
+
+    # We also load the files
+    files = list_directory_content(request, directory_current_user(request), ".vcf", False)
+
+    return questions, q, files
 
 @csrf_exempt
 def query_index_interface(request):
@@ -69,6 +95,7 @@ def sample_index_interface(request):
     return render('sample.index.interface.mako', request, locals())
 
 """ INSERT DATA FOR SAMPLE """
+@csrf_exempt
 def sample_insert_interface(request):
     """ Insert the data of one or multiple sample in the database """
     error_get = False
@@ -117,7 +144,7 @@ def sample_insert_interface(request):
     # We display the form
     return render('sample.insert.interface.mako', request, locals())
 
-
+@csrf_exempt
 def sample_insert(request):
     """ Insert sample data to database """
 
@@ -197,6 +224,7 @@ def sample_insert(request):
         return HttpResponse(json.dumps(result), mimetype="application/json")
 
     # Now we analyze each sample information
+    tsv_content = ''
     for raw_line in raw_lines:
         answers = raw_line.split(",")
 
@@ -263,40 +291,18 @@ def sample_insert(request):
             current_sample['pn_id'] = ''
         pn_id = str(current_sample['pn_id'])
 
-        # We insert the data
-        fprint("INSERT INTO clinical_sample VALUES('"+sample_id+"', '"+patient_id+"', '"+date_of_collection+"', '"+original_sample_id+"', '"+status+"', '"+sample_type+"', '"+biological_contamination+"','"+storage_condition+"', '"+biobank_id+"', '"+pn_id+"');")
-        query = hql_query("INSERT INTO clinical_sample VALUES('"+sample_id+"', '"+patient_id+"', '"+date_of_collection+"', '"+original_sample_id+"', '"+status+"', '"+sample_type+"', '"+biological_contamination+"','"+storage_condition+"', '"+biobank_id+"', '"+pn_id+"');")
-        handle = db.execute_and_wait(query, timeout_sec=5.0)
+        # We create the tsv content
+        tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
+
+    # We create the tsv file
+    request.fs.create('/user/'+request.user.username+'/cgs_vcf_import.tsv', overwrite=True, data=tsv_content)
+
+    # We insert the data
+    query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table clinical_sample;")
+    handle = db.execute_and_wait(query, timeout_sec=30.0)
 
     result['status'] = 1
     return HttpResponse(json.dumps(result), mimetype="application/json")
-
-
-def sample_insert_questions(request):
-    """ Return the questions asked to insert the data """
-    questions = {
-        "sample_registration":{
-            "main_title": "Sample",
-            "original_sample_id": {"question": "Original sample id", "field": "text", "regex": "a-zA-Z0-9_-", "mandatory": True},
-            "patient_id": {"question": "Patient id", "field": "text", "regex": "a-zA-Z0-9_-", "mandatory": True},
-            "biobank_id": {"question": "Biobank id", "field": "text", "regex": "a-zA-Z0-9_-"},
-            "prenatal_id": {"question": "Prenatal id", "field": "text", "regex": "a-zA-Z0-9_-"},
-            "sample_collection_date": {"question": "Date of collection", "field": "date", "regex": "date"},
-            "collection_status": {"question": "Collection status", "field": "select", "fields":("collected","not collected")},
-            "sample_type": {"question": "Sample type", "field": "select", "fields":("serum","something else")},
-            "biological_contamination": {"question": "Biological contamination", "field": "select", "fields":("no","yes")},
-            "sample_storage_condition": {"question": "Storage condition", "field": "select", "fields":("0C","1C","2C","3C","4C")},
-        },
-    }
-
-    # A dict in python is not ordered so we need a list
-    q = ("main_title", "original_sample_id", "patient_id", "biobank_id", "prenatal_id", "sample_collection_date", "collection_status", "sample_type",
-        "biological_contamination", "sample_storage_condition")
-
-    # We also load the files
-    files = list_directory_content(request, directory_current_user(request), ".vcf", False)
-
-    return questions, q, files
 
 def sample_insert_vcfinfo(request, filename, total_length):
     """ Return the different samples found in the given vcf file """
@@ -339,10 +345,10 @@ def database_initialize(request):
     db = dbms.get(request.user, query_server=query_server)
   
     # The sql queries
-    sql = "DROP TABLE IF EXISTS map_sample_id; CREATE TABLE map_sample_id (internal_sample_id STRING, customer_sample_id STRING, date_creation TIMESTAMP, date_modification TIMESTAMP);  DROP TABLE IF EXISTS sample_files; CREATE TABLE sample_files (id STRING, internal_sample_id STRING, file_path STRING, file_type STRING, date_creation TIMESTAMP, date_modification TIMESTAMP);"
+    sql = "DROP TABLE IF EXISTS map_sample_id; CREATE TABLE map_sample_id (internal_sample_id STRING, customer_sample_id STRING, date_creation TIMESTAMP, date_modification TIMESTAMP);  DROP TABLE IF EXISTS sample_files; CREATE TABLE sample_files (id STRING, internal_sample_id STRING, file_path STRING, file_type STRING, date_creation TIMESTAMP, date_modification TIMESTAMP) row format delimited fields terminated by ',' stored as textfile;"
 
     # The clinical db
-    sql += "DROP TABLE IF EXISTS clinical_sample; CREATE TABLE clinical_sample (sample_id STRING, patient_id STRING, date_of_collection STRING, original_sample_id STRING, status STRING, sample_type STRING, biological_contamination STRING, storage_condition STRING, biobank_id STRING, pn_id STRING);"
+    sql += "DROP TABLE IF EXISTS clinical_sample; CREATE TABLE clinical_sample (sample_id STRING, patient_id STRING, date_of_collection STRING, original_sample_id STRING, status STRING, sample_type STRING, biological_contamination STRING, storage_condition STRING, biobank_id STRING, pn_id STRING) row format delimited fields terminated by ',' stored as textfile;"
 
     #DROP TABLE IF EXISTS variants; CREATE TABLE variants (id STRING, alternate_bases STRING, calls STRING, names STRING, info STRING, reference_bases STRING, quality DOUBLE, created TIMESTAMP, elem_start BIGINT, elem_end BIGINT, variantset_id STRING); DROP TABLE IF EXISTS variantsets;
     #CREATE TABLE variantsets (id STRING, dataset_id STRING, metadata STRING, reference_bounds STRING);
