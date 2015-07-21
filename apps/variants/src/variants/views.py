@@ -37,6 +37,7 @@ from django.contrib.auth.decorators import user_passes_test, login_required
 from django.http import Http404, HttpResponse
 
 from variants import api
+from converters import *
 
 def index(request):
     """ Display the first page of the application """
@@ -301,7 +302,31 @@ def sample_insert(request):
     query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table clinical_sample;")
     handle = db.execute_and_wait(query, timeout_sec=30.0)
 
-    result['status'] = 1
+    # To analyze the content of the vcf, we need to get it from the hdfs to this node
+    tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=0, length=length)
+    tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
+    f = open(tmp_filename,mode='w')
+    f.write(tmp_vcf)
+    f.close()
+
+    # Now we try to analyze the vcf a little bit more with the correct tool
+    json_filename = tmp_filename+'.cgs.json'
+    convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
+    status = convert.convertVCF2FLATJSON()
+
+    if status == 'succeeded':
+        result['status'] = 1
+
+        # We put the local file on the hdfs
+        with open(json_filename, 'r') as content_file:
+            json_content = content_file.read()
+            request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
+
+        # We delete the temporary file previously created on this node
+        os.remove(tmp_filename)
+    else:
+        result['status'] = 0
+
     return HttpResponse(json.dumps(result), mimetype="application/json")
 
 def sample_insert_vcfinfo(request, filename, total_length):
@@ -1063,9 +1088,12 @@ def current_line():
   
 def fprint(txt):
     """ Print some text in a debug file """
-    f = open('debug.txt', 'a')
-    f.write("Line: "+str(current_line)+" in views.py: "+str(txt)+"\n")
-    f.close()
+    try:
+        f = open('debug.txt', 'a')
+        f.write("Line: "+str(current_line)+" in views.py: "+str(txt)+"\n")
+        f.close()
+    except:
+        print("Not possible to open the debug file...")
     return True
 
 def list_directory_content(request, first_path, extension, save_stats=False):

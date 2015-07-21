@@ -53,12 +53,12 @@ class formatConverters(object):
     def convertVCF2FLATJSON(self):
         """ Convert a VCF file to a FLAT JSON file
         Note: this function is a temporary function that should be replaced in future versions.
-        
+        Check the doc: https://pyvcf.readthedocs.org/en/latest/API.html#vcf-model-call
         """
-        if self.input_type not in ['vcf','vcf.gz'] or self.output_type != 'json':
-            msg = "Error: vcf files (possibly gzipped) must be given as input files, and a json file should be given as output file."
+        if self.input_type not in ['vcf','vcf.gz'] or self.output_type != 'jsonflat':
+            msg = "Error: vcf files (possibly gzipped) must be given as input files, and a jsonflat file should be given as output file."
             status = "failed"
-            raise msg
+            raise ValueError(msg)
 
         f = open(self.input_file)
         o = open(self.output_file,'w')
@@ -68,11 +68,18 @@ class formatConverters(object):
         #for i in [1]:
             record = vcf_reader.next()
             for s in record.samples:
+
                 if hasattr(s.data,'DP'):
                     call_DP = s.data.DP
                 else:
                     call_DP = "NA"
-                if len(uniqueInList(s.data.GT.split('|'))) > 1:
+
+                if hasattr(s.data,'GT') and s.data.GT is not None:
+                    current_gt = s.data.GT
+                else:
+                    current_gt = ""
+
+                if len(uniqueInList(current_gt.split('|'))) > 1:
                     call_het = "Heterozygous"
                 else:
                     call_het = "Homozygous"
@@ -108,7 +115,7 @@ class formatConverters(object):
                     "variants_info_downsampled": "NA",
                     "variants_referenceName": record.CHROM,
                     "variants_alternateBases": ALT,
-                    "variants_calls_genotype" : s.data.GT
+                    "variants_calls_genotype" : current_gt
                     }
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
 
@@ -150,7 +157,7 @@ class formatConverters(object):
         if self.input_type != 'json' or self.output_type != 'json':
             msg = "Error: json files must be given as input files."
             status = "failed"
-            raise msg
+            raise ValueError(msg)
         
         f = open(self.input_file)
         h = open(self.output_file,'w')
@@ -165,7 +172,7 @@ class formatConverters(object):
         except:
             msg = "Error: the json does not follow the right syntax."
             status = "failed"
-            raise msg
+            raise ValueError(msg)
         return(status)
         f.close()
         h.close()
@@ -176,7 +183,7 @@ class formatConverters(object):
         status = "failed"
         if avscFile == "":
             msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
-            raise msg
+            raise ValueError(msg)
         else:
             pass
             """
@@ -205,12 +212,12 @@ def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     ## check if the input directory exists
     if not os.path.isdir(jsonDir):
         msg = "The directory %s does not exist" % jsonDir 
-        raise msg
+        raise ValueError(msg)
     
     ## check if the avsc file exists
     if not os.path.isfile(avscFile): 
         msg = "The file %s does not exist" % avscFile 
-        raise msg
+        raise ValueError(msg)
     
     ## convert JSON files to flat JSON files
     tmpJSONFLATDir = id_generator()
