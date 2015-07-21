@@ -2,10 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/apps/variants/src/variants/vcf.py" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/views.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/views.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/README.md" afterPath="$PROJECT_DIR$/README.md" />
     </list>
     <ignored path="cgs-apps.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -29,14 +26,34 @@
   </component>
   <component name="FileEditorManager">
     <leaf>
-      <file leaf-file-name="views.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="views.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.3187251" vertical-offset="16185" max-vertical-offset="17355">
-              <caret line="1095" column="53" selection-start-line="1095" selection-start-column="53" selection-end-line="1095" selection-end-column="53" />
+            <state vertical-scroll-proportion="-12.785714" vertical-offset="1037" max-vertical-offset="17355">
+              <caret line="93" column="28" selection-start-line="93" selection-start-column="28" selection-end-line="93" selection-end-column="28" />
               <folding>
                 <element signature="e#23#65#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="sample.index.interface.mako" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.0" vertical-offset="16" max-vertical-offset="810">
+              <caret line="23" column="73" selection-start-line="23" selection-start-column="73" selection-end-line="23" selection-end-column="73" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="README.md" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/README.md">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.7106274" vertical-offset="0" max-vertical-offset="781">
+              <caret line="37" column="0" selection-start-line="37" selection-start-column="0" selection-end-line="37" selection-end-column="0" />
+              <folding />
             </state>
           </provider>
         </entry>
@@ -91,16 +108,6 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="installForTest.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/installForTest.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.0" vertical-offset="1590" max-vertical-offset="1845">
-              <caret line="106" column="73" selection-start-line="106" selection-start-column="73" selection-end-line="106" selection-end-column="73" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file leaf-file-name="settings.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/settings.py">
           <provider selected="true" editor-type-id="text-editor">
@@ -135,7 +142,6 @@
         <option value="$PROJECT_DIR$/apps/variants/src/variants.egg-info/SOURCES.txt" />
         <option value="$PROJECT_DIR$/apps/variants/setup.py" />
         <option value="$PROJECT_DIR$/apps/variants/babel.cfg" />
-        <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/query.index.interface.mako" />
         <option value="$PROJECT_DIR$/installForTest.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/settings.py" />
@@ -144,6 +150,8 @@
         <option value="$PROJECT_DIR$/apps/variants/src/variants/urls.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/views.py" />
+        <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" />
+        <option value="$PROJECT_DIR$/README.md" />
       </list>
     </option>
   </component>
@@ -787,13 +795,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="810">
-          <caret line="45" column="6" selection-start-line="45" selection-start-column="6" selection-end-line="45" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/query.index.interface.mako">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="30" max-vertical-offset="780">
@@ -870,11 +871,27 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.3187251" vertical-offset="16185" max-vertical-offset="17355">
-          <caret line="1095" column="53" selection-start-line="1095" selection-start-column="53" selection-end-line="1095" selection-end-column="53" />
+        <state vertical-scroll-proportion="-12.785714" vertical-offset="1037" max-vertical-offset="17355">
+          <caret line="93" column="28" selection-start-line="93" selection-start-column="28" selection-end-line="93" selection-end-column="28" />
           <folding>
             <element signature="e#23#65#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="16" max-vertical-offset="810">
+          <caret line="23" column="73" selection-start-line="23" selection-start-column="73" selection-end-line="23" selection-end-column="73" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.7106274" vertical-offset="0" max-vertical-offset="781">
+          <caret line="37" column="0" selection-start-line="37" selection-start-column="0" selection-end-line="37" selection-end-column="0" />
+          <folding />
         </state>
       </provider>
     </entry>

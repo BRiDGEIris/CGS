@@ -22,5 +22,16 @@ Here is a list of functionalities of this app:
 
 Those functionalities are available through the Hue interface and through external client using API. For more details about the API provided in this app, see [*here*](https://github.com/jpoullet2000/cgs-apps/blob/master/apps/variants/src/variants/static/help/index.md).   
 
+For now, you need to go through additional steps to run this app (not included in installCGSapps.py yet)
+0. `sudo python installCGSapps.py variants`
+1. `sudo easy_install pip`
+2. `sudo pip install ordereddict` (if you have python < 2.7)
+3. `sudo pip install counter` (if you have python < 2.7)
+4. Download PyVCF on https://pypi.python.org/pypi/PyVCF, decompress it and go inside the folder
+5. `sudo python setup.py install `
+
+If you have problems with hue permissions, or that installCGSapps.py does not seem to restart the views.py after you modified it, you can try the following command in your virtual machine (not recommended in production, just for debug)
+`find /usr/lib/hue -type d -exec chmod 777 {} \;`
+ 
 ### App 2
 *There is no other app yet ... please do not hesitate if you want to contribute. 
