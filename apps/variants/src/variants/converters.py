@@ -32,7 +32,7 @@ class formatConverters(object):
             sp = input_file.split('.')
             self.input_type = sp[len(sp)-1]
             if self.input_type == 'gz':
-                self.input_type = 'sp[len(sp)-2]' + 'sp[len(sp)-1]'
+                self.input_type = sp[len(sp)-2] + sp[len(sp)-1]
         else:
             self.input_type = input_type
             
