@@ -328,15 +328,21 @@ def sample_insert(request):
         json_content = content_file.read()
         request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=json_content)
 
-    # We import the .tsv into impala, then we put it into a parquet table
-    query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table variants_text;")
+    # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
+    database_create_variants(request, temporary=True)
+
+    query = hql_query("load data inpath '/user/"+request.user.username+"/"+json_filename+".tsv' into table variants_tmp_"+request.user.username+";")
     handle = db.execute_and_wait(query, timeout_sec=30.0)
 
+    query = hql_query("insert into table variants select * from variants_tmp_"+request.user.username+";")
+    handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+    query = hql_query("drop table variants_tmp_"+request.user.username+";")
+    handle = db.execute_and_wait(query, timeout_sec=30.0)
 
     # We delete the temporary file previously created on this node
     os.remove(tmp_filename)
     os.remove(json_filename)
-    os.remove(json_filename+'.tsv')
 
     if status == 'succeeded':
         result['status'] = 1
