@@ -314,17 +314,27 @@ def sample_insert(request):
     convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
     status = convert.convertVCF2FLATJSON()
 
+    # We convert the json to text
+    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='parquet')
+    status = convert.convertJsonToParquet(request)
+
     if status == 'succeeded':
         result['status'] = 1
 
         # We put the local file on the hdfs
+        # TODO: do not load anymore the entire file in RAM in one-shot
         with open(json_filename, 'r') as content_file:
             json_content = content_file.read()
             request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
 
+        with open(json_filename+'.tsv', 'r') as content_file:
+            json_content = content_file.read()
+            request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=json_content)
+
         # We delete the temporary file previously created on this node
         os.remove(tmp_filename)
         os.remove(json_filename)
+        os.remove(json_filename+'.tsv')
     else:
         result['status'] = 0
 

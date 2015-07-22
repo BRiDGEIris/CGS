@@ -16,7 +16,7 @@ class formatConverters(object):
 
     Possible formats:
         * input: vcf, vcf.gz (gzipped), json, jsonflat
-        * output: json, jsonflat, avro
+        * output: json, jsonflat, avro, parquet
         * additional file: avsc (avro schema)  
     """
     def __init__(self,
@@ -64,10 +64,9 @@ class formatConverters(object):
 
         f = open(self.input_file, 'r')
         o = open(self.output_file, 'w')
+
         vcf_reader = vcf.Reader(f)
-        #cc = 1
         for record in vcf_reader:
-        #for i in [1]:
             record = vcf_reader.next()
             for s in record.samples:
                 if hasattr(s.data,'DP'):
@@ -107,6 +106,15 @@ class formatConverters(object):
                         field = pyvcf_parameter.split('.')
                         try:
                             value = str(getattr(record, field.pop()))
+                        except:
+                            value = ""
+
+                        if value is None:
+                            value = ""
+                    elif pyvcf_parameter.startswith('Call'):
+                        field = pyvcf_parameter.split('.')
+                        try:
+                            value = str(getattr(s, field.pop()))
                         except:
                             value = ""
 
@@ -178,7 +186,56 @@ class formatConverters(object):
             
             # jsonline = json.dumps(varDic, ensure_ascii=False)
             # cc += 1
-        
+
+    def convertJsonToParquet(self, request):
+        # The json received should be created previously by 'convertPyvcfToJson' as we will want a json object/line
+
+        # First we will create a temporary text file (tsv) that we will import in the impala table, then
+        # we will import the text file to parquet with impala
+
+        # 1st: we take the json to text information
+        mapping = self.getMappingJsonToText()
+        max_items = 0
+        for key in mapping:
+            if mapping[key] > max_items:
+                max_items = mapping[key]
+
+        # 2nd: we create the tsv file
+        f = open(self.input_file, 'r')
+        o = open(self.output_file, 'w')
+
+        for json_line in f:
+            variant = json.loads(json_line)
+
+            # We take the different alternates
+            # TODO: for some reasons the json.loads() doesn't like the value it received...
+            try:
+                alternates = json.loads(variant['variants.alternateBases[]'])
+            except:
+                alternates = [variant['variants.alternateBases[]'].replace('[','').replace(']','')]
+
+            for alternate in alternates:
+
+                # We associate a json value to a position in the output
+                output_line = ["" for i in range(max_items+1)]
+                for json_key in mapping:
+                    if json_key in variant:
+                        output_line[mapping[json_key]] = str(variant[json_key])
+
+                # We generate the rowkey
+                output_line[0] = variant['readGroupSets.readGroups.sampleID'] + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + alternate
+
+                # We generate the line
+                o.write(','.join(output_line).replace('"','')+'\n')
+
+        f.close()
+        o.close()
+
+        # TODO: import data into parquet now
+
+        status = "succeeded"
+        return(status)
+
     def convertJSON2FLATJSON(self):
         """ Convert a JSON file (for the format, see the documentation) to a flat JSON file or more accurately a series of JSON lines  
         """
@@ -244,6 +301,17 @@ class formatConverters(object):
 
         return new_mapping
 
+    def getMappingPyvcfToText(self):
+        # Return the mapping 'pyvcf_parameter' > 'order_in_text_file'
+
+        mapping = self.getMapping()
+
+        new_mapping = {}
+        for key in mapping:
+            new_mapping[key] = mapping[key]['parquet']
+
+        return new_mapping
+
     def getMappingPyvcfToJson(self):
         # Return the mapping PyVCF to JSON
         mapping = self.getMapping()
@@ -282,20 +350,11 @@ class formatConverters(object):
            'Record.INFO.MQ0':{'json':'variants.info.mapping_quality_zero_read','hbase':'I.MQ0','parquet':12},
            'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I.DS','parquet':13},
            'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14},
-           'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15}
+           'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15},
+           'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16}
         }
 
         return mapping
-
-    def convertJSONToParquet(self, request):
-
-        # First we will create a temporary text file (tsv) that we will import in the impala table, then
-        # we will import the text file to parquet with impala
-
-        # 1st: we take the json to text information
-        pass
-
-        # 2nd: we create the tsv file
 
 
         
