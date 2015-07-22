@@ -314,27 +314,32 @@ def sample_insert(request):
     convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
     status = convert.convertVCF2FLATJSON()
 
+    # TODO: do not load anymore the entire file in RAM in one-shot
+    with open(json_filename, 'r') as content_file:
+        json_content = content_file.read()
+        request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
+
     # We convert the json to text
-    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='parquet')
-    status = convert.convertJsonToParquet(request)
+    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
+    status = convert.convertJsonToText(request)
+
+    # TODO: do not load anymore the entire file in RAM in one-shot
+    with open(json_filename+'.tsv', 'r') as content_file:
+        json_content = content_file.read()
+        request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=json_content)
+
+    # We import the .tsv into impala, then we put it into a parquet table
+    query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table variants_text;")
+    handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+
+    # We delete the temporary file previously created on this node
+    os.remove(tmp_filename)
+    os.remove(json_filename)
+    os.remove(json_filename+'.tsv')
 
     if status == 'succeeded':
         result['status'] = 1
-
-        # We put the local file on the hdfs
-        # TODO: do not load anymore the entire file in RAM in one-shot
-        with open(json_filename, 'r') as content_file:
-            json_content = content_file.read()
-            request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
-
-        with open(json_filename+'.tsv', 'r') as content_file:
-            json_content = content_file.read()
-            request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=json_content)
-
-        # We delete the temporary file previously created on this node
-        os.remove(tmp_filename)
-        os.remove(json_filename)
-        os.remove(json_filename+'.tsv')
     else:
         result['status'] = 0
 
@@ -373,8 +378,51 @@ def sample_insert_vcfinfo(request, filename, total_length):
     return samples
 
 """ INITIALIZE THE DATABASE """
+def database_create_variants(request, temporary=False):
+    # Create the variant table. If temporary is True, it means we need to create a temporary structure as Text to be imported
+    # to another variants table (that won't be temporary)
+
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json',output_type='json')
+    fields = fc.getMappingPyvcfToText()
+    pyvcf_fields = fc.getMappingPyvcfToJson()
+    hbase_fields = fc.getMappingJsonToHBase()
+    inversed_fields = {}
+    max_value = 0
+    for field in fields:
+        if fields[field] > max_value:
+            max_value = fields[field]
+        future_field = hbase_fields[pyvcf_fields[field]].split('.')
+        inversed_fields[fields[field]] = future_field.pop()
+
+    variants_table = ["" for i in xrange(max_value+1)]
+    for i in range(1, max_value + 1): # TODO: for now we simply choose the STRING type for every field
+        variants_table[i] = inversed_fields[i]+" STRING"
+        if i < max_value:
+            variants_table[i] += ","
+    variants_table[0] = "pk STRING, "
+
+    # Connexion to the db
+    query_server = get_query_server_config(name='impala')
+    db = dbms.get(request.user, query_server=query_server)
+
+    # Deleting the old table and creating the new one
+    if temporary is True:
+        handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants_tmp_"+request.user.username+";"), timeout_sec=30.0)
+        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") row format delimited fields terminated by ',' stored as textfile;")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+    else:
+        handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants;"), timeout_sec=30.0)
+        query = hql_query("CREATE TABLE variants("+"".join(variants_table)+") stored as parquet;")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+    return True
+
 def database_initialize(request):
     """ Install the tables for this application """
+
+
+    # The (impala) variant table
+    database_create_variants(request, temporary=False)
 
     # Connexion to the db
     query_server = get_query_server_config(name='impala')

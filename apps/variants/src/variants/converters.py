@@ -126,33 +126,6 @@ class formatConverters(object):
 
                     linedic[mapping[pyvcf_parameter]] = value
 
-                """
-                linedic = {
-                    "variants_info_num_genes" : "NA", 
-                    "variants_quality" : str(record.QUAL),
-                    "variants_info_allele_num": "NA",
-                    "variants_calls_info_zygosity": call_het,
-                    "variants_info_short_tandem_repeat": "NA",
-                    "readGroupSets_readGroups_experiment_sequencingCenter": "NA",
-                    "readGroupSets_readGroups_info_patient": s.sample,
-                    "variants_info_change_type": record.var_type,
-                    "variants_calls_info_read_depth": str(call_DP),
-                    "variants_info_other_effects": "NA",
-                    "variants_referenceBases": record.REF,
-                    "variants_info_is_scSNV_Ensembl": "NA",
-                    "readGroupSets_readGroups_experiment_libraryId": "NA",
-                    "variants_info_dbsnp_id_137": "NA",
-                    "variants_info_lof_tolerant_or_recessive_gene": "NA",
-                    "variants_info_is_scSNV_RefSeq": "NA",
-                    "variants_filters": FILTER,
-                    "readGroupSets_readGroups_sampleID": s.sample,
-                    "variants_start": str(record.POS),
-                    "variants_info_downsampled": "NA",
-                    "variants_referenceName": record.CHROM,
-                    "variants_alternateBases": ALT,
-                    "variants_calls_genotype" : current_gt
-                    }
-                """
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
 
         o.close()
@@ -160,38 +133,9 @@ class formatConverters(object):
 
         status = "succeeded"
         return(status)
-            # #sampleIdList =  
-            # varDic = {{"Callset": {"id" : , "sampleId" : , "variantSetIds" : [] }},
-            #           # {"ReadGroupSets" :
-            #           #  {"ReadGroups" : {"sampleId" : }, {"sampleId" : }}
-            #           # },
-            #           {"Variants" :
-            #            {"variantSetId" : "",
-            #             "referenceName" : "",
-            #             "start" : "",
-            #             "end" : "",
-            #             "referenceBases" :
-            #             "alternateBases" :
-            #             "quality" :
-            #             "filter" :
-            #             },
-            #             "calls" :
-            #             { "callSetId": ,
-            #               "genotype" : []
-            #               }
-            #         },
-            #         { "Variantsets" { "id" : }}
-                      
-                        
-            
-            # jsonline = json.dumps(varDic, ensure_ascii=False)
-            # cc += 1
 
-    def convertJsonToParquet(self, request):
+    def convertJsonToText(self, request):
         # The json received should be created previously by 'convertPyvcfToJson' as we will want a json object/line
-
-        # First we will create a temporary text file (tsv) that we will import in the impala table, then
-        # we will import the text file to parquet with impala
 
         # 1st: we take the json to text information
         mapping = self.getMappingJsonToText()
@@ -230,8 +174,6 @@ class formatConverters(object):
 
         f.close()
         o.close()
-
-        # TODO: import data into parquet now
 
         status = "succeeded"
         return(status)
@@ -322,7 +264,7 @@ class formatConverters(object):
 
         return new_mapping
 
-    def getMappingPyvcfToHBase(self):
+    def getMappingJsonToHBase(self):
         # Return the mapping Json to HBase
         mapping = self.getMapping()
 
