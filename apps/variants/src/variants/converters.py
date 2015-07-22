@@ -60,15 +60,16 @@ class formatConverters(object):
             status = "failed"
             raise ValueError(msg)
 
-        f = open(self.input_file)
-        o = open(self.output_file,'w')
+        mapping = self.getMappingPyvcfToJson()
+
+        f = open(self.input_file, 'r')
+        o = open(self.output_file, 'w')
         vcf_reader = vcf.Reader(f)
         #cc = 1
         for record in vcf_reader:
         #for i in [1]:
             record = vcf_reader.next()
             for s in record.samples:
-
                 if hasattr(s.data,'DP'):
                     call_DP = s.data.DP
                 else:
@@ -91,7 +92,33 @@ class formatConverters(object):
                     FILTER = '|'.join([str(a) for a in record.FILTER])
                 else:
                     FILTER = str(record.FILTER)
-                    
+
+                linedic = {}
+
+                for pyvcf_parameter in mapping:
+
+                    if pyvcf_parameter.startswith('Record.INFO'):
+                        field = pyvcf_parameter.split('.')
+                        try:
+                            value = record.INFO[field.pop()]
+                        except:
+                            value = ""
+                    elif pyvcf_parameter.startswith('Record'):
+                        field = pyvcf_parameter.split('.')
+                        try:
+                            value = str(getattr(record, field.pop()))
+                        except:
+                            value = ""
+
+                        if value is None:
+                            value = ""
+                    else:
+                        value = ""
+                        print("Parameter '"+pyvcf_parameter+"' not supported.")
+
+                    linedic[mapping[pyvcf_parameter]] = value
+
+                """
                 linedic = {
                     "variants_info_num_genes" : "NA", 
                     "variants_quality" : str(record.QUAL),
@@ -117,6 +144,7 @@ class formatConverters(object):
                     "variants_alternateBases": ALT,
                     "variants_calls_genotype" : current_gt
                     }
+                """
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
 
         o.close()
@@ -204,7 +232,72 @@ class formatConverters(object):
         return(status)
 
         ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file 
-        
+
+    def getMappingJsonToText(self):
+        # Return the mapping 'json_parameter' > 'order_in_text_file'
+
+        mapping = self.getMapping()
+
+        new_mapping = {}
+        for key in mapping:
+            new_mapping[mapping[key]['json']] = mapping[key]['parquet']
+
+        return new_mapping
+
+    def getMappingPyvcfToJson(self):
+        # Return the mapping PyVCF to JSON
+        mapping = self.getMapping()
+
+        new_mapping = {}
+        for key in mapping:
+            new_mapping[key] = mapping[key]['json']
+
+        return new_mapping
+
+    def getMappingPyvcfToHBase(self):
+        # Return the mapping Json to HBase
+        mapping = self.getMapping()
+
+        new_mapping = {}
+        for key in mapping:
+            new_mapping[mapping[key]['json']] = mapping[key]['hbase']
+
+        return new_mapping
+
+    def getMapping(self):
+        # Return the mapping between PyVCF, JSON, HBase and Parquet (parquet position only)
+
+        mapping = {
+            'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1},
+           'Record.POS':{'json':'variants.start','hbase':'R.P','parquet':2},
+           'Record.REF':{'json':'variants.referenceBases','hbase':'R.REF','parquet':3},
+           'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','parquet':4},
+           'Record.ID':{'json':'variants.info.dbsnp_id','hbase':'I.DBSNP137','parquet':5},
+           'Record.FILTER':{'json':'variants.filters[]','hbase':'R.FILTER','parquet':6},
+           'Record.QUAL':{'json':'variants.quality','hbase':'R.QUAL','parquet':7},
+           'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I.QD','parquet':8},
+           'Record.INFO.HRun':{'json':'variants.info.largest_homopolymer','hbase':'I.HR','parquet':9},
+           'Record.INFO.SB':{'json':'variants.strand_bias','hbase':'I.SB','parquet':10},
+           'Record.INFO.DP':{'json':'variants.calls.info.read_depth','hbase':'F.DPF','parquet':11},
+           'Record.INFO.MQ0':{'json':'variants.info.mapping_quality_zero_read','hbase':'I.MQ0','parquet':12},
+           'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I.DS','parquet':13},
+           'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14},
+           'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15}
+        }
+
+        return mapping
+
+    def convertJSONToParquet(self, request):
+
+        # First we will create a temporary text file (tsv) that we will import in the impala table, then
+        # we will import the text file to parquet with impala
+
+        # 1st: we take the json to text information
+        pass
+
+        # 2nd: we create the tsv file
+
+
         
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file

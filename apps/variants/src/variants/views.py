@@ -324,6 +324,7 @@ def sample_insert(request):
 
         # We delete the temporary file previously created on this node
         os.remove(tmp_filename)
+        os.remove(json_filename)
     else:
         result['status'] = 0
 
