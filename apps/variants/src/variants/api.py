@@ -375,3 +375,4 @@ class CallSetDetail(APIView):
         # Information on a specific callset
         result = {'status':1,'text':'Everything is alright.'}
         return Response(result)
+
