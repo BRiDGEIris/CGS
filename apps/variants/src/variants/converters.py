@@ -298,8 +298,19 @@ class formatConverters(object):
 
         return mapping
 
-
+def dbmap(json_term, database="hbase"):
+    # Return the mapping between a given json name and a specific field name (for HBase typically). Returns None if nothing found.
+    info = {
         
+    }
+
+    try:
+        value = info[json_term]
+    except Exception:
+        value = None
+
+    return value
+
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file
     """

@@ -190,6 +190,10 @@ class VariantDetail(APIView):
 
         return Response(result)
 
+    def create(self, request):
+        # Create a new variant
+        pass
+
     def search(self, request, terms=''):
         # Search for a specific variant
         result = {'status':1,'text':'Everything is alright.'}
