@@ -347,7 +347,10 @@ class VariantDetail(APIView):
             data = db.fetch(handle)
             var_result = []
             #Reverse dictionary of the fields config for the variants_api substructure 
-            api_reverse_fields = {fields_config[field]["substructures"]["variants_api"].replace(".","_") : field  for field in fields_config.keys() if fields_config[field]["substructures"].get("variants_api",None)}
+            api_reverse_fields = {}
+            for field in fields_config.keys():
+                if fields_config[field]["substructures"].get("variants_api",None):
+                    api_reverse_fields[fields_config[field]["substructures"]["variants_api"].replace(".","_")]= field 
             columns = [columns.append(api_reverse_fields['col']) for col in data.columns()]
             for row in data.rows():
                 row_dict = {}
