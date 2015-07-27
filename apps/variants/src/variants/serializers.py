@@ -1,6 +1,10 @@
 from rest_framework import serializers
 from variants.models import *
 from django.conf import settings
+from beeswax.design import hql_query
+from beeswax.server import dbms
+from beeswax.server.dbms import get_query_server_config
+from converters import *
 
 # The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/
 
@@ -132,7 +136,7 @@ class ReadSerializer(serializers.Serializer):
     info = serializers.DictField()
 
 """
-    Variant
+    VariantSet
 """
 class VariantSetReferenceBoundSerializer(serializers.Serializer):
     # This object is only used by VariantSetSerializer()
@@ -182,6 +186,38 @@ class VariantSerializer(serializers.Serializer):
     filter = serializers.ListField()
     info = serializers.DictField()
     calls = VariantCallSerializer(many=True)
+
+    def post(self, request):
+        # Insert a new variant inside the database
+
+        # We create the query to put the data
+        query_data = ["" for i in range(dbmap_length()+1)]
+
+        query_data[0] = self.variantSetId + '-' + self.referenceName + '-' + self.start + '-' + self.referenceBases + '-' + self.alternateBases
+
+        query_data[dbmap('variants.variantSetId', order=True)] = self.variantSetId
+        query_data[dbmap('variants.id', order=True)] = self.id
+        query_data[dbmap('variants.names', order=True)] = ';'.join(self.names)
+        query_data[dbmap('variants.created', order=True)] = self.created
+        query_data[dbmap('variants.referenceName', order=True)] = self.created
+        query_data[dbmap('variants.start', order=True)] = self.start
+        query_data[dbmap('variants.end', order=True)] = self.end
+        query_data[dbmap('variants.referenceBases', order=True)] = self.referenceBases
+        query_data[dbmap('variants.alternateBases[]', order=True)] = ";".join(self.alternateBases)
+        query_data[dbmap('variants.quality', order=True)] = self.quality
+        query_data[dbmap('variants.filters[]', order=True)] = ";".join(self.filter)
+        query_data[dbmap('variants.info', order=True)] = json.dumps(self.info)
+        query_data[dbmap('variants.calls', order=True)] = "TODO" # TODO
+
+        # We make the query
+        query_server = get_query_server_config(name='impala')
+        db = dbms.get(request.user, query_server=query_server)
+        query = hql_query("INSERT INTO variant("+",".join(query_data)+")")
+        handle = db.execute_and_wait(query, timeout_sec=5.0)
+        if handle:
+            db.close(handle)
+        else:
+            raise Exception("Impossible to create the variant...")
 
 """
     CallSet

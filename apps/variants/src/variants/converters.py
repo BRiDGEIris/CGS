@@ -276,9 +276,10 @@ class formatConverters(object):
 
     def getMapping(self):
         # Return the mapping between PyVCF, JSON, HBase and Parquet (parquet position only)
+        # Sometimes there is nothing in PyVCF to give information for a specific file created by ourselves.
 
         mapping = {
-            'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1},
+        'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1},
            'Record.POS':{'json':'variants.start','hbase':'R.P','parquet':2},
            'Record.REF':{'json':'variants.referenceBases','hbase':'R.REF','parquet':3},
            'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','parquet':4},
@@ -293,23 +294,46 @@ class formatConverters(object):
            'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I.DS','parquet':13},
            'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14},
            'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15},
-           'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16}
+           'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16},
+            # The following terms should be correctly defined
+           'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17},
+           'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18},
+           'todefine3':{'json':'variants.names','hbase':'R.NAMES','parquet':19},
+           'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20},
+           'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':20},
+           'todefine6':{'json':'variants.info','hbase':'R.INFO','parquet':20},
+           'todefine7':{'json':'variants.calls','hbase':'R.CALLS','parquet':20},
         }
 
         return mapping
 
-def dbmap(json_term, database="hbase"):
-    # Return the mapping between a given json name and a specific field name (for HBase typically). Returns None if nothing found.
-    info = {
-        
-    }
+def dbmap(json_term, database="impala", order=False):
+    # Return the mapping between a given json name and a specific field name (for Impala typically, but it should be
+    # the same for HBase, but we need to give the column family too). Returns None if nothing found.
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
+    mapping = fc.getMapping()
 
-    try:
-        value = info[json_term]
-    except Exception:
-        value = None
+    value = None
+    for pyvcf in mapping:
+        if mapping[pyvcf]['json'] == json_term:
+            if order is False: # We want the field name
+                value = mapping[pyvcf]['hbase']
+            else: # We want the field number
+                value = mapping[pyvcf]['parquet']
 
     return value
+
+def dbmap_length():
+    # Return the number of fields inside parquet/hbase
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
+    mapping = fc.getMapping()
+
+    max_number = 0
+    for pyvcf in mapping:
+        if mapping[pyvcf]['parquet'] > max_number:
+            max_number = mapping[pyvcf]['parquet']
+
+    return max_number
 
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file

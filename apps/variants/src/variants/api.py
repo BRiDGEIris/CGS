@@ -190,9 +190,19 @@ class VariantDetail(APIView):
 
         return Response(result)
 
-    def create(self, request):
+    def post(self, request):
         # Create a new variant
-        pass
+        status = -1
+
+        variant_form = VariantSerializer(data=request.data)
+        if variant_form.is_valid():
+            try:
+                variant_form.post(request)
+                status = 1
+            except:
+                status = 0
+
+        return Response(json.dumps({'status':status}))
 
     def search(self, request, terms=''):
         # Search for a specific variant
