@@ -295,14 +295,21 @@ class formatConverters(object):
            'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14},
            'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15},
            'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16},
+
             # The following terms should be correctly defined
            'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17},
-           'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18},
+           'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18}, # Ok
            'todefine3':{'json':'variants.names','hbase':'R.NAMES','parquet':19},
            'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20},
-           'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':20},
-           'todefine6':{'json':'variants.info','hbase':'R.INFO','parquet':20},
-           'todefine7':{'json':'variants.calls','hbase':'R.CALLS','parquet':20},
+           'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21},
+           'todefine6':{'json':'variants.info','hbase':'R.INFO','parquet':22},
+           'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23},
+           'todefine8':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24},
+           'todefine9':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25},
+           'todefine10':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26},
+           'todefine11':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27},
+           'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28},
+           'todefine13':{'json':'variants.calls[].info[]','hbase':'R.CALLS_INFO','parquet':29},
         }
 
         return mapping

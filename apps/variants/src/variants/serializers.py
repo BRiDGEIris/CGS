@@ -207,7 +207,7 @@ class VariantSerializer(serializers.Serializer):
         query_data[dbmap('variants.quality', order=True)] = self.quality
         query_data[dbmap('variants.filters[]', order=True)] = ";".join(self.filter)
         query_data[dbmap('variants.info', order=True)] = json.dumps(self.info)
-        query_data[dbmap('variants.calls', order=True)] = "TODO" # TODO
+        query_data[dbmap('variants.calls[]', order=True)] = "TODO" # TODO
 
         # We make the query
         query_server = get_query_server_config(name='impala')
