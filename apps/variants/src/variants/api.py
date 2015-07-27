@@ -25,6 +25,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from serializers import *
 
+import os
+from settings import ROOT_PATH
+
 LOG = logging.getLogger(__name__)
 
 ### debugging
@@ -193,7 +196,7 @@ class VariantDetail(APIView):
 
         # > Code below NEEDS REFACTORING
 
-        """ Search a variant by some criteria (see doc for more details and if not https://cloud.google.com/genomics/v1beta2/reference/variants/search)
+        """ Search a variant by some criteria (see doc for more details and if not https://cloud.google.com/genomics/v1beta2/reference/variants/search )
 
         To test it type in your bash prompt:
         See the documentation
@@ -242,25 +245,82 @@ class VariantDetail(APIView):
             return HttpResponse(json.dumps(result), mimetype="application/json")
 
         try:
-            ## TODO:
-            ## - the variant_table should be defined from the config files not as a string as here
-            ## - the callsetids should map to a specific field (here readGroupSets_readGroups_info_patientId) in the variant table, this info should be read from the config files, not as a string as here.
-            ## the listVars should be read from the config files as well
-            variants_table = "jpoullet_1000genomes_1E7rows_bis"
-            listVars = ["id","readGroupSets_readGroups_info_patientId"]
+            #Find the location of config.yml (locally then globally)
+            local_config_path = os.path.join(ROOT_PATH,'config.yml')
+            if not os.path.exists(local_config_path):
+                result['status'] = 0
+                result['error'] = "The local config file of the variants app could not be found. Please check your installation."
+                return HttpResponse(json.dumps(result), mimetype="application/json")
+            local_config_file = open(local_config_path)
+            global_config_path = yaml.load(local_config_file.read())["CGSCONFIG"]
+            local_config_file.close()
+            if not os.path.exists(global_config_path):
+                result['status'] = 0
+                result['error'] = "The global config file could not be found. Please check your installation."
+                return HttpResponse(json.dumps(result), mimetype="application/json")
+            global_config_file = open(global_config_path)
+            global_config = yaml.load(global_config_file)
+            
+            #Look for the variants_api substructure (general version for any number of substructures)and its "database" element to get variants_table
+            api_substructure = [a for substructure in global_config['substructures'] if substructure['name']=='variants_api']
+            if len(api_substructure) > 0:
+                variants_table= api_substructure[0].get("database",None)
+            else:
+                result['status'] = 0
+                result['error'] = "The config file does not have a database for variants_api. Please check your installation."
+                return HttpResponse(json.dumps(result), mimetype="application/json")
+            if not variants_table:
+                result['status'] = 0
+                result['error'] = "The config file does not have a database for variants_api. Please check your installation."
+                return HttpResponse(json.dumps(result), mimetype="application/json")
+            global_config_file.close()
+            
             fprint(variants_table)
+            
+            #Look for the variant_api.yml config file to load the list of fields in the SELECT statement of the query
+            api_config_path = os.path.join(os.path.dirname(global_config_path),'sourceFiles/variants_api.yml')
+            if not os.path.exists(api_config_path):
+                result['status'] = 0
+                result['error'] = "The api config file could not be found. Please check your installation."
+                return HttpResponse(json.dumps(result), mimetype="application/json")
+            api_config_file = open(api_config_path)
+            api_config = yaml.load(api_config_file)
+            api_config_file.close()
+            for key in api_config.keys():
+                if key == 'variants': #TODO: Verify if others are necessary or if we only keep the variables associated with variants
+                    for var in api_config[key]['columns'].keys():
+                        listVars.append(key+'_'+var)
+            listVars = [var.replace('.','_') for var in listVars]
+            
+            #Look for the fields.yml file for correspondences between criteria and fields in the database
+            fields_config_path = os.path.join(os.path.dirname(global_config_path),'sourceFiles/fields.yml')
+            if not os.path.exists(api_config_path):
+                result['status'] = 0
+                result['error'] = "The fields config file could not be found. Please check your installation."
+                return HttpResponse(json.dumps(result), mimetype="application/json")
+            fields_config_file = open(fields_config_path)
+            fields_config = yaml.load(fields_config_file)
+            fields_config_file.close()
+            
             #fprint(str(criteria.keys()[0]))
             searchCriteriaList = list()
             for k in criteria.keys():
-                fprint(criteria[str(k)])
-                if str(k) == 'callSetIds':
-                    refvar = "readGroupSets_readGroups_info_patientId" ## TODO: this must be read from the config files
-                elif str(k) == 'referenceName':
-                    refvar = 'variants_referenceName' ## TODO: this must be read from the config files
+                fprint(criteria[k])
+                reffield = fields_config.get(str(k),None)
+                if reffield:
+                    refvar = reffield["substructures"].get("variants_api",None)
                 else:
-                    pass # TODO: there should be an error when the user chooses some inexisting variable
-                fprint(refvar + " in ('" + "','".join([str(s) for s in criteria[str(k)]]) + "')")
-                searchCriteriaList.append(refvar + " in ('" + "','".join([str(s) for s in criteria[str(k)]]) + "')")
+                    result['status'] = -1
+                    result['error'] = "Criterion field "+ k + " not found."
+                    return HttpResponse(json.dumps(result), mimetype="application/json")
+                if refvar:
+                    refvar = refvar.replace('.','_')
+                else:
+                    result['status'] = -1
+                    result['error'] = "Criterion field "+ k + " is not an api field."
+                    return HttpResponse(json.dumps(result), mimetype="application/json")
+                fprint(refvar + " in ('" + "','".join([str(s) for s in criteria[k]]) + "')")
+                searchCriteriaList.append(refvar + " in ('" + "','".join([str(s) for s in criteria[k]]) + "')")
 
             searchCriteriaTxt = " AND ".join(searchCriteriaList)
             fprint(searchCriteriaTxt)
@@ -285,10 +345,17 @@ class VariantDetail(APIView):
 
         if handle:
             data = db.fetch(handle)
-            ## TODO: rebuild the variant resource such as defined in the API
-            ## field parser that would take the config files as input to retrieve the generate back the structured json
-            ## results['variants'] = getStructuredJson(list(data.rows))
-            result['variants'] = list(data.rows())
+            var_result = []
+            #Reverse dictionary of the fields config for the variants_api substructure 
+            api_reverse_fields = {fields_config[field]["substructures"]["variants_api"].replace(".","_") : field  for field in fields_config.keys() if fields_config[field]["substructures"].get("variants_api",None)}
+            columns = [columns.append(api_reverse_fields['col']) for col in data.columns()]
+            for row in data.rows():
+                row_dict = {}
+                for index in range(len(row)):
+                    row_dict[columns[index]] = row[index]
+                var_result.append(row_dict)
+            
+            result['variants'] = json.dumps(var_result)
             result['status'] = 1
             db.close(handle)
 

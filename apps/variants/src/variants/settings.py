@@ -20,3 +20,9 @@ MENU_INDEX = 100
 #ICON = "variants/static/art/icon_genomicAPI_48.png"
 ICON = "css/variants/art/icon_genomicAPI_48.png"
 DEBUG = True
+
+import os
+variants_dir = os.path.dirname(__file__)
+src_dir = os.path.dirname(variants_dir)
+ROOT_PATH = os.path.abspath(os.path.dirname(src_dir))
+#Gives access to the root path from other files
