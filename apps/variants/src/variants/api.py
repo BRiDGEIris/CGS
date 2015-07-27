@@ -190,6 +190,17 @@ class VariantDetail(APIView):
 
         return Response(result)
 
+    def get(self, request, pk):
+        # Returns some information on a specific variant
+
+        # We ask some information
+        variant = VariantSerializer()
+        variant.load(pk=pk)
+
+        # We can return the result correctly formatted
+        return Response(data=variant.data)
+
+
     def post(self, request):
         # Create a new variant
         status = -1

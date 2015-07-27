@@ -299,7 +299,7 @@ class formatConverters(object):
             # The following terms should be correctly defined
            'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17},
            'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18}, # Ok
-           'todefine3':{'json':'variants.names','hbase':'R.NAMES','parquet':19},
+           'todefine3':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19},
            'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20},
            'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21},
            'todefine6':{'json':'variants.info','hbase':'R.INFO','parquet':22},
@@ -341,6 +341,14 @@ def dbmap_length():
             max_number = mapping[pyvcf]['parquet']
 
     return max_number
+
+def dbmapToJson(data, database="impala"):
+    # Map the data from a database line to a json object
+
+    mapped = {}
+    # TODO
+
+    return mapped
 
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file

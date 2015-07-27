@@ -187,6 +187,37 @@ class VariantSerializer(serializers.Serializer):
     info = serializers.DictField()
     calls = VariantCallSerializer(many=True)
 
+    def load(self, pk):
+        # Load a specific variant
+
+        # We take the information in the database
+        query_server = get_query_server_config(name='impala')
+        db = dbms.get(request.user, query_server=query_server)
+        query = hql_query("SELECT * FROM variants WHERE pk='"+pk+"'")
+        handle = db.execute_and_wait(query, timeout_sec=5.0)
+        if not handle:
+            raise Exception("Impossible to load the variant...")
+
+        # We load it in the current object
+        data = db.fetch(handle, rows=1)
+        json_data = dbmapToJson(data)
+        self.variantSetId = json_data['variants.variantSetId']
+        self.id = json_data['variants.id']
+        self.names = json_data['variants.names'].split(';')
+        self.created = int(json_data['variants.created'])
+        self.referenceName = json_data['variants.referenceName']
+        self.start = json_data['variants.start']
+        self.end = json_data['variants.end']
+        self.referenceBases = json_data['variants.referenceBases']
+        self.alternateBases = json_data['variants.alternatesBases[]'].split(';')
+        self.quality = json_data['variants.quality']
+        self.filters = json_data['variants.filters[]'].split(';')
+        self.info = json.loads(json_data['variants.filters[]'])
+        self.calls = json_data['variants.calls[]'] # TODO
+
+        # We close the database connection
+        db.close(handle)
+
     def post(self, request):
         # Insert a new variant inside the database
 
@@ -197,7 +228,7 @@ class VariantSerializer(serializers.Serializer):
 
         query_data[dbmap('variants.variantSetId', order=True)] = self.variantSetId
         query_data[dbmap('variants.id', order=True)] = self.id
-        query_data[dbmap('variants.names', order=True)] = ';'.join(self.names)
+        query_data[dbmap('variants.names[]', order=True)] = ';'.join(self.names)
         query_data[dbmap('variants.created', order=True)] = self.created
         query_data[dbmap('variants.referenceName', order=True)] = self.created
         query_data[dbmap('variants.start', order=True)] = self.start
