@@ -30,6 +30,7 @@ urlpatterns = patterns('variants',
 
     # Importing the data
     url(r'^api/vcf/$', api.VCFDetail.as_view(),name='vcf-detail'),
+    url(r'^api/variant/(?P<pk>[a-zA-Z0-9-]{1,30})/$', api.VariantDetail.as_view(),name='variant-detail'),
     url(r'^api/variant/$', api.VariantDetail.as_view(),name='variant-detail'),
     url(r'^api/sample/$', api.SampleDetail.as_view(),name='sample-detail'),
     url(r'^api/samples/$', api.SampleList.as_view(),name='sample-list'),

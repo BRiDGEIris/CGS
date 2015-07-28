@@ -187,8 +187,47 @@ class VariantSerializer(serializers.Serializer):
     info = serializers.DictField()
     calls = VariantCallSerializer(many=True)
 
-    def load(self, pk):
+    def __init__(self, request, pk, *args, **kwargs):
+        # TODO: for now we simply load the data inside the 'data' field, we should load
+        # the data directly inside the current object
+
+        # We take the information in the database
+        query_server = get_query_server_config(name='impala')
+        db = dbms.get(request.user, query_server=query_server)
+        query = hql_query("SELECT * FROM variants WHERE pk='"+pk+"'")
+        handle = db.execute_and_wait(query, timeout_sec=5.0)
+        if not handle:
+            raise Exception("Impossible to load the variant...")
+
+        # We load it in the current object
+        d = {}
+        data = db.fetch(handle, rows=1)
+        json_data = dbmapToJson(list(data.rows()).pop())
+        d['variantSetId'] = json_data['variants.variantSetId']
+        d['id'] = json_data['variants.id']
+        d['names'] = json_data['variants.names[]'].split(';')
+        d['created'] = int(json_data['variants.created'])
+        d['referenceName'] = json_data['variants.referenceName']
+        d['start'] = int(json_data['variants.start'])
+        d['end'] = int(json_data['variants.end'])
+        d['referenceBases'] = json_data['variants.referenceBases']
+        d['alternateBases'] = json_data['variants.alternateBases[]'].split(';')
+        d['quality'] = json_data['variants.quality']
+        d['filters'] = json_data['variants.filters[]'].split(';')
+        d['info'] = json.loads(json_data['variants.filters[]'])
+        d['calls'] = json_data['variants.calls[]'] # TODO
+
+        # We close the database connection
+        db.close(handle)
+
         # Load a specific variant
+        kwargs['data'] = d
+        super(VariantSerializer, self).__init__(*args, **kwargs)
+
+        # TODO: we should remove that method call when we resolve the TODO above.
+        self.is_valid()
+
+    def load(self, request, pk):
 
         # We take the information in the database
         query_server = get_query_server_config(name='impala')
@@ -200,20 +239,23 @@ class VariantSerializer(serializers.Serializer):
 
         # We load it in the current object
         data = db.fetch(handle, rows=1)
-        json_data = dbmapToJson(data)
+        json_data = dbmapToJson(list(data.rows()).pop())
         self.variantSetId = json_data['variants.variantSetId']
         self.id = json_data['variants.id']
-        self.names = json_data['variants.names'].split(';')
+        self.names = json_data['variants.names[]'].split(';')
         self.created = int(json_data['variants.created'])
         self.referenceName = json_data['variants.referenceName']
-        self.start = json_data['variants.start']
-        self.end = json_data['variants.end']
+        self.start = int(json_data['variants.start'])
+        self.end = int(json_data['variants.end'])
         self.referenceBases = json_data['variants.referenceBases']
-        self.alternateBases = json_data['variants.alternatesBases[]'].split(';')
+        self.alternateBases = json_data['variants.alternateBases[]'].split(';')
         self.quality = json_data['variants.quality']
         self.filters = json_data['variants.filters[]'].split(';')
         self.info = json.loads(json_data['variants.filters[]'])
         self.calls = json_data['variants.calls[]'] # TODO
+
+        self.start = 199
+
 
         # We close the database connection
         db.close(handle)
@@ -362,10 +404,3 @@ class JobSerializer(serializers.Serializer):
     warnings = serializers.ListField()
     created = serializers.IntegerField()
     request = JobRequestSerializer()
-
-
-
-
-
-
-

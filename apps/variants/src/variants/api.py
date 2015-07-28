@@ -23,6 +23,7 @@ from rest_framework import routers, serializers, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.renderers import JSONRenderer
 from serializers import *
 
 import os
@@ -164,6 +165,7 @@ class VariantSetDetail(APIView):
 
 class VariantDetail(APIView):
 
+    renderer_classes = (JSONRenderer, )
     def get(self, request, pk=-1):
         # Information on a specific variant
         result = {'status':1,'text':'Everything is alright.'}
@@ -190,16 +192,17 @@ class VariantDetail(APIView):
 
         return Response(result)
 
-    def get(self, request, pk):
+    def get(self, request, pk=""):
         # Returns some information on a specific variant
 
+        if len(pk) == 0:
+            return Response(json.dumps({'status':-1,'error':'Variant id not given.'}))
+
         # We ask some information
-        variant = VariantSerializer()
-        variant.load(pk=pk)
+        variant = VariantSerializer(request=request, pk=pk)
 
-        # We can return the result correctly formatted
-        return Response(data=variant.data)
-
+        #return Response(json.dumps({'status':-1,'error':'Variant id invalid or problem while loading the variant.'}))
+        return Response(variant.data)
 
     def post(self, request):
         # Create a new variant

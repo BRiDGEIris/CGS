@@ -26,3 +26,10 @@ variants_dir = os.path.dirname(__file__)
 src_dir = os.path.dirname(variants_dir)
 ROOT_PATH = os.path.abspath(os.path.dirname(src_dir))
 #Gives access to the root path from other files
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    )
+}
