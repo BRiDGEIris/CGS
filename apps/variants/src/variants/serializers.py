@@ -174,18 +174,17 @@ class VariantCallSerializer(serializers.Serializer):
 
     def __init__(self, variantcall_data, *args, **kwargs):
         # We load the data based on the information we receive from the database.
-        # TODO: manage multiple objects
         # TODO: dynamic loading (to not have to rewrite the fields one-by-one)
         d = {}
 
-        json_data_list = dbmapToJson(variantcall_data, subdata=True)
-        for json_data in json_data_list:
-            d['callSetId'] = json_data['variants.calls[].callSetId']
-            d['callSetName'] = json_data['variants.calls[].callSetName']
-            d['genotype'] = json_data['variants.calls[].genotype[]']
-            d['phaseset'] = json_data['variants.calls[].phaseset']
-            d['genotypeLikelihood'] = json_data['variants.calls[].genotypeLikelihood[]']
-            d['info'] = json_data['variants.calls[].info{}']
+        json_data = dbmapToJson(variantcall_data)
+
+        d['callSetId'] = json_data['variants.calls[].callSetId']
+        d['callSetName'] = json_data['variants.calls[].callSetName']
+        d['genotype'] = json_data['variants.calls[].genotype[]']
+        d['phaseset'] = json_data['variants.calls[].phaseset']
+        d['genotypeLikelihood'] = json_data['variants.calls[].genotypeLikelihood[]']
+        d['info'] = json_data['variants.calls[].info{}']
 
         # Now we can call the classical constructor
         kwargs['data'] = d
@@ -205,7 +204,7 @@ class VariantSerializer(serializers.Serializer):
     quality = serializers.FloatField()
     filter = serializers.ListField()
     info = serializers.DictField()
-    calls = VariantCallSerializer(variantcall_data='')#TODO 'many=True'
+    calls = VariantCallSerializer(variantcall_data='', many=True)
 
     def __init__(self, request, pk, *args, **kwargs):
         # TODO: for now we simply load the data inside the 'data' field, we should load
@@ -236,7 +235,10 @@ class VariantSerializer(serializers.Serializer):
         d['filters'] = json_data['variants.filters[]']
         d['info'] = json_data['variants.info{}']
 
-        d['calls']= VariantCallSerializer(variantcall_data=json_data['variants.calls[]']).data
+        d['calls'] = []
+        for variants_call in json_data['variants.calls[]']:
+            call = VariantCallSerializer(variantcall_data=variants_call)
+            d['calls'].append(call.data)
 
         # We close the database connection
         db.close(handle)

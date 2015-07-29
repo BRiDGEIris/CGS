@@ -342,22 +342,17 @@ def dbmap_length():
 
     return max_number
 
-def dbmapToJson(data, database="impala", subdata=False):
+def dbmapToJson(data, database="impala"):
     # Map the data from a database line to a json object
     # The 'data' is received from impala, and we get something like ['NA06986-4-101620184-TAAC-T', '4', '101620184', 'TAAC', '[T]', 'None', '[]', '19', '', '', '', '3279', '', '', '2', '', 'NA06986']
     # so we cannot rely on the column name, only on the order of the fields
-    # If subdata is True, it means the 'data' received is not a entire data line, but a subpart of it, in that case
-    # we may need to return a list of json objects and not a simple object.
-    # So: subdata is False > simple object. subdata is True > list of objects
-    # TODO: manage multiple objects (> 'subdata is True')
+    # TODO: manage multiple objects
     # TODO: manage HBase data
 
-    mapped = []
+    mapped = {}
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
     mapping = fc.getMapping()
 
-    iter = 0
-    mapped.append({})
     for pyvcf in mapping:
 
         json_field = mapping[pyvcf]['json']
@@ -366,15 +361,15 @@ def dbmapToJson(data, database="impala", subdata=False):
 
         try:
             if type == 'int':
-                mapped[iter][json_field] = int(data[order])
+                mapped[json_field] = int(data[order])
             elif type == 'float':
-                mapped[iter][json_field] = float(data[order])
+                mapped[json_field] = float(data[order])
             elif type == 'dict':
-                mapped[iter][json_field] = json.loads(data[order])
+                mapped[json_field] = json.loads(data[order])
             elif type == 'list':
-                mapped[iter][json_field] = data[order].split(';')
+                mapped[json_field] = data[order].split(';')
             else:
-                mapped[iter][json_field] = data[order]
+                mapped[json_field] = data[order]
         except:
             if type == 'int':
                 value = 0
@@ -386,13 +381,9 @@ def dbmapToJson(data, database="impala", subdata=False):
                 value = []
             else:
                 value = ''
-            mapped[iter][json_field] = value
+            mapped[json_field] = value
 
-
-    if subdata is False: # We surely only have one object
-        return mapped[0]
-    else: # We may have multiple objects, so we need to send back a list
-        return mapped
+    return mapped
 
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file
