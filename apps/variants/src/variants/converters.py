@@ -384,6 +384,22 @@ def dbmapToJson(data, database="impala"):
             mapped[json_field] = value
 
     return mapped
+def jsonToSerializerData(json_data, fields, prefix):
+    # Convert the json data from dbmapToJson to a data dict used by a DRF Serializer to initialize an object
+    # The 'fields' come from the given Serializer. The 'prefix' comes also from the Serializer, it is based
+    # on the hierarchy of the Serializer regarding the other Serializers (see google documentation)
+
+    d = {}
+    for field in fields:
+        if prefix+'.'+field+'[]' in json_data:
+            type = '[]'
+        elif prefix+'.'+field+'{}' in json_data:
+            type = '{}'
+        else:
+            type = ''
+        d[field] = json_data[prefix+'.'+field+type]
+
+    return d
 
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file

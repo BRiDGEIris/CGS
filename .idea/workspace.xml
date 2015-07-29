@@ -84,8 +84,8 @@
       <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="1.3948439" vertical-offset="2467" max-vertical-offset="6045">
-              <caret line="233" column="29" selection-start-line="233" selection-start-column="29" selection-end-line="233" selection-end-column="29" />
+            <state vertical-scroll-proportion="-0.18317503" vertical-offset="3255" max-vertical-offset="5790">
+              <caret line="208" column="23" selection-start-line="208" selection-start-column="23" selection-end-line="208" selection-end-column="23" />
               <folding>
                 <element signature="e#0#38#0" expanded="true" />
               </folding>
@@ -96,8 +96,8 @@
       <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-2.6785715" vertical-offset="5175" max-vertical-offset="7095">
-              <caret line="351" column="15" selection-start-line="351" selection-start-column="15" selection-end-line="351" selection-end-column="15" />
+            <state vertical-scroll-proportion="-23.714285" vertical-offset="5306" max-vertical-offset="7335">
+              <caret line="399" column="37" selection-start-line="399" selection-start-column="37" selection-end-line="399" selection-end-column="37" />
               <folding />
             </state>
           </provider>
@@ -914,16 +914,16 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-2.6785715" vertical-offset="5175" max-vertical-offset="7095">
-          <caret line="351" column="15" selection-start-line="351" selection-start-column="15" selection-end-line="351" selection-end-column="15" />
+        <state vertical-scroll-proportion="-23.714285" vertical-offset="5306" max-vertical-offset="7335">
+          <caret line="399" column="37" selection-start-line="399" selection-start-column="37" selection-end-line="399" selection-end-column="37" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="1.3948439" vertical-offset="2467" max-vertical-offset="6045">
-          <caret line="233" column="29" selection-start-line="233" selection-start-column="29" selection-end-line="233" selection-end-column="29" />
+        <state vertical-scroll-proportion="-0.18317503" vertical-offset="3255" max-vertical-offset="5790">
+          <caret line="208" column="23" selection-start-line="208" selection-start-column="23" selection-end-line="208" selection-end-column="23" />
           <folding>
             <element signature="e#0#38#0" expanded="true" />
           </folding>

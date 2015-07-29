@@ -177,14 +177,9 @@ class VariantCallSerializer(serializers.Serializer):
         # TODO: dynamic loading (to not have to rewrite the fields one-by-one)
         d = {}
 
+        # We load the data inside a 'data' dict, based on the current field above
         json_data = dbmapToJson(variantcall_data)
-
-        d['callSetId'] = json_data['variants.calls[].callSetId']
-        d['callSetName'] = json_data['variants.calls[].callSetName']
-        d['genotype'] = json_data['variants.calls[].genotype[]']
-        d['phaseset'] = json_data['variants.calls[].phaseset']
-        d['genotypeLikelihood'] = json_data['variants.calls[].genotypeLikelihood[]']
-        d['info'] = json_data['variants.calls[].info{}']
+        d = jsonToSerializerData(json_data, self.fields, 'variants.calls[]')
 
         # Now we can call the classical constructor
         kwargs['data'] = d
@@ -202,7 +197,7 @@ class VariantSerializer(serializers.Serializer):
     referenceBases = serializers.CharField()
     alternateBases = serializers.ListField()
     quality = serializers.FloatField()
-    filter = serializers.ListField()
+    filters = serializers.ListField()
     info = serializers.DictField()
     calls = VariantCallSerializer(variantcall_data='', many=True)
 
@@ -219,21 +214,9 @@ class VariantSerializer(serializers.Serializer):
             raise Exception("Impossible to load the variant...")
 
         # We load it in the current object
-        d = {}
         data = db.fetch(handle, rows=1)
         json_data = dbmapToJson(list(data.rows()).pop())
-        d['variantSetId'] = json_data['variants.variantSetId']
-        d['id'] = json_data['variants.id']
-        d['names'] = json_data['variants.names[]']
-        d['created'] = json_data['variants.created']
-        d['referenceName'] = json_data['variants.referenceName']
-        d['start'] = json_data['variants.start']
-        d['end'] = json_data['variants.end']
-        d['referenceBases'] = json_data['variants.referenceBases']
-        d['alternateBases'] = json_data['variants.alternateBases[]']
-        d['quality'] = json_data['variants.quality']
-        d['filters'] = json_data['variants.filters[]']
-        d['info'] = json_data['variants.info{}']
+        d = jsonToSerializerData(json_data, self.fields, 'variants')
 
         d['calls'] = []
         for variants_call in json_data['variants.calls[]']:
