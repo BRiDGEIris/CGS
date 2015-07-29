@@ -6,7 +6,7 @@ from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
 from converters import *
 
-# The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/
+# The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/reference/
 
 class VCFSerializer(serializers.Serializer):
     pk = serializers.IntegerField(read_only=True)
@@ -165,12 +165,32 @@ class VariantSetSerializer(serializers.Serializer):
 
 class VariantCallSerializer(serializers.Serializer):
     # This object is only used by VariantSerializer()
-    callSetId = serializers.CharField()
-    callSetName = serializers.CharField()
+    callSetId = serializers.CharField(allow_blank=True)
+    callSetName = serializers.CharField(allow_blank=True)
     genotype = serializers.ListField()
-    phaseset = serializers.CharField()
+    phaseset = serializers.CharField(allow_blank=True)
     genotypeLikelihood = serializers.ListField()
     info = serializers.DictField()
+
+    def __init__(self, variantcall_data, *args, **kwargs):
+        # We load the data based on the information we receive from the database.
+        # TODO: manage multiple objects
+        # TODO: dynamic loading (to not have to rewrite the fields one-by-one)
+        d = {}
+
+        json_data_list = dbmapToJson(variantcall_data, subdata=True)
+        for json_data in json_data_list:
+            d['callSetId'] = json_data['variants.calls[].callSetId']
+            d['callSetName'] = json_data['variants.calls[].callSetName']
+            d['genotype'] = json_data['variants.calls[].genotype[]']
+            d['phaseset'] = json_data['variants.calls[].phaseset']
+            d['genotypeLikelihood'] = json_data['variants.calls[].genotypeLikelihood[]']
+            d['info'] = json_data['variants.calls[].info{}']
+
+        # Now we can call the classical constructor
+        kwargs['data'] = d
+        super(VariantCallSerializer, self).__init__(*args, **kwargs)
+        self.is_valid()
 
 class VariantSerializer(serializers.Serializer):
     variantSetId = serializers.CharField()
@@ -185,7 +205,7 @@ class VariantSerializer(serializers.Serializer):
     quality = serializers.FloatField()
     filter = serializers.ListField()
     info = serializers.DictField()
-    calls = VariantCallSerializer(many=True)
+    calls = VariantCallSerializer(variantcall_data='')#TODO 'many=True'
 
     def __init__(self, request, pk, *args, **kwargs):
         # TODO: for now we simply load the data inside the 'data' field, we should load
@@ -205,17 +225,18 @@ class VariantSerializer(serializers.Serializer):
         json_data = dbmapToJson(list(data.rows()).pop())
         d['variantSetId'] = json_data['variants.variantSetId']
         d['id'] = json_data['variants.id']
-        d['names'] = json_data['variants.names[]'].split(';')
-        d['created'] = int(json_data['variants.created'])
+        d['names'] = json_data['variants.names[]']
+        d['created'] = json_data['variants.created']
         d['referenceName'] = json_data['variants.referenceName']
-        d['start'] = int(json_data['variants.start'])
-        d['end'] = int(json_data['variants.end'])
+        d['start'] = json_data['variants.start']
+        d['end'] = json_data['variants.end']
         d['referenceBases'] = json_data['variants.referenceBases']
-        d['alternateBases'] = json_data['variants.alternateBases[]'].split(';')
+        d['alternateBases'] = json_data['variants.alternateBases[]']
         d['quality'] = json_data['variants.quality']
-        d['filters'] = json_data['variants.filters[]'].split(';')
-        d['info'] = json.loads(json_data['variants.filters[]'])
-        d['calls'] = json_data['variants.calls[]'] # TODO
+        d['filters'] = json_data['variants.filters[]']
+        d['info'] = json_data['variants.info{}']
+
+        d['calls']= VariantCallSerializer(variantcall_data=json_data['variants.calls[]']).data
 
         # We close the database connection
         db.close(handle)
@@ -227,41 +248,9 @@ class VariantSerializer(serializers.Serializer):
         # TODO: we should remove that method call when we resolve the TODO above.
         self.is_valid()
 
-    def load(self, request, pk):
-
-        # We take the information in the database
-        query_server = get_query_server_config(name='impala')
-        db = dbms.get(request.user, query_server=query_server)
-        query = hql_query("SELECT * FROM variants WHERE pk='"+pk+"'")
-        handle = db.execute_and_wait(query, timeout_sec=5.0)
-        if not handle:
-            raise Exception("Impossible to load the variant...")
-
-        # We load it in the current object
-        data = db.fetch(handle, rows=1)
-        json_data = dbmapToJson(list(data.rows()).pop())
-        self.variantSetId = json_data['variants.variantSetId']
-        self.id = json_data['variants.id']
-        self.names = json_data['variants.names[]'].split(';')
-        self.created = int(json_data['variants.created'])
-        self.referenceName = json_data['variants.referenceName']
-        self.start = int(json_data['variants.start'])
-        self.end = int(json_data['variants.end'])
-        self.referenceBases = json_data['variants.referenceBases']
-        self.alternateBases = json_data['variants.alternateBases[]'].split(';')
-        self.quality = json_data['variants.quality']
-        self.filters = json_data['variants.filters[]'].split(';')
-        self.info = json.loads(json_data['variants.filters[]'])
-        self.calls = json_data['variants.calls[]'] # TODO
-
-        self.start = 199
-
-
-        # We close the database connection
-        db.close(handle)
-
     def post(self, request):
         # Insert a new variant inside the database
+        # TODO: it would be great to move the ';'.join() and json.dumps() to converters.py
 
         # We create the query to put the data
         query_data = ["" for i in range(dbmap_length()+1)]
@@ -276,10 +265,10 @@ class VariantSerializer(serializers.Serializer):
         query_data[dbmap('variants.start', order=True)] = self.start
         query_data[dbmap('variants.end', order=True)] = self.end
         query_data[dbmap('variants.referenceBases', order=True)] = self.referenceBases
-        query_data[dbmap('variants.alternateBases[]', order=True)] = ";".join(self.alternateBases)
+        query_data[dbmap('variants.alternateBases[]', order=True)] = ';'.join(self.alternateBases)
         query_data[dbmap('variants.quality', order=True)] = self.quality
-        query_data[dbmap('variants.filters[]', order=True)] = ";".join(self.filter)
-        query_data[dbmap('variants.info', order=True)] = json.dumps(self.info)
+        query_data[dbmap('variants.filters[]', order=True)] = ';'.join(self.filter)
+        query_data[dbmap('variants.info{}', order=True)] = json.dumps(self.info)
         query_data[dbmap('variants.calls[]', order=True)] = "TODO" # TODO
 
         # We make the query

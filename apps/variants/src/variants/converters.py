@@ -282,9 +282,9 @@ class formatConverters(object):
         'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1,'type':'string'},
            'Record.POS':{'json':'variants.start','hbase':'R.P','parquet':2,'type':'int'},
            'Record.REF':{'json':'variants.referenceBases','hbase':'R.REF','parquet':3,'type':'string'},
-           'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','parquet':4,'type':'string'},
+           'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','parquet':4,'type':'list'},
            'Record.ID':{'json':'variants.info.dbsnp_id','hbase':'I.DBSNP137','parquet':5,'type':'string'},
-           'Record.FILTER':{'json':'variants.filters[]','hbase':'R.FILTER','parquet':6,'type':'string'},
+           'Record.FILTER':{'json':'variants.filters[]','hbase':'R.FILTER','parquet':6,'type':'list'},
            'Record.QUAL':{'json':'variants.quality','hbase':'R.QUAL','parquet':7,'type':'float'},
            'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I.QD','parquet':8,'type':'string'},
            'Record.INFO.HRun':{'json':'variants.info.largest_homopolymer','hbase':'I.HR','parquet':9,'type':'string'},
@@ -299,17 +299,17 @@ class formatConverters(object):
             # The following terms should be correctly defined
            'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
            'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18,'type':'string'}, # Ok
-           'todefine3':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'string'},
+           'todefine3':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
            'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20,'type':'int'},
            'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21,'type':'int'},
-           'todefine6':{'json':'variants.info','hbase':'R.INFO','parquet':22,'type':'string'},
-           'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'string'},
+           'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
+           'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'list'},
            'todefine8':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
            'todefine9':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
-           'todefine10':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'string'},
+           'todefine10':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
            'todefine11':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
-           'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28,'type':'string'},
-           'todefine13':{'json':'variants.calls[].info[]','hbase':'R.CALLS_INFO','parquet':29,'type':'string'},
+           'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28,'type':'list'},
+           'todefine13':{'json':'variants.calls[].info{}','hbase':'R.CALLS_INFO','parquet':29,'type':'dict'},
         }
 
         return mapping
@@ -342,36 +342,57 @@ def dbmap_length():
 
     return max_number
 
-def dbmapToJson(data, database="impala"):
+def dbmapToJson(data, database="impala", subdata=False):
     # Map the data from a database line to a json object
     # The 'data' is received from impala, and we get something like ['NA06986-4-101620184-TAAC-T', '4', '101620184', 'TAAC', '[T]', 'None', '[]', '19', '', '', '', '3279', '', '', '2', '', 'NA06986']
     # so we cannot rely on the column name, only on the order of the fields
+    # If subdata is True, it means the 'data' received is not a entire data line, but a subpart of it, in that case
+    # we may need to return a list of json objects and not a simple object.
+    # So: subdata is False > simple object. subdata is True > list of objects
+    # TODO: manage multiple objects (> 'subdata is True')
+    # TODO: manage HBase data
 
-    mapped = {}
+    mapped = []
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
     mapping = fc.getMapping()
 
+    iter = 0
+    mapped.append({})
     for pyvcf in mapping:
+
         json_field = mapping[pyvcf]['json']
         order = mapping[pyvcf]['parquet']
         type = mapping[pyvcf]['type']
+
         try:
             if type == 'int':
-                mapped[json_field] = int(data[order])
+                mapped[iter][json_field] = int(data[order])
             elif type == 'float':
-                mapped[json_field] = float(data[order])
+                mapped[iter][json_field] = float(data[order])
+            elif type == 'dict':
+                mapped[iter][json_field] = json.loads(data[order])
+            elif type == 'list':
+                mapped[iter][json_field] = data[order].split(';')
             else:
-                mapped[json_field] = data[order]
+                mapped[iter][json_field] = data[order]
         except:
             if type == 'int':
-                val = 0
+                value = 0
             elif type == 'float':
-                val = 0.0
+                value = 0.0
+            elif type == 'dict':
+                value = {}
+            elif type == 'list':
+                value = []
             else:
-                val = ''
-            mapped[json_field] = val
+                value = ''
+            mapped[iter][json_field] = value
 
-    return mapped
+
+    if subdata is False: # We surely only have one object
+        return mapped[0]
+    else: # We may have multiple objects, so we need to send back a list
+        return mapped
 
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     """ Convert all JSON files to one AVRO file
