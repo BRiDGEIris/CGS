@@ -170,25 +170,113 @@ class VariantDetail(APIView):
         # Information on a specific variant
         result = {'status':1,'text':'Everything is alright.'}
 
+        # > Code below NEEDS REFACTORING
+
+        """ Return a variant given itsprimary key (see doc for more details and if not https://cloud.google.com/genomics/v1beta2/reference/variants/get )
+
+        To test it type in your bash prompt:
+        See the documentation
+
+        """
+        # ## check request
+        if request.method != 'GET':
+            result['status'] = -1
+            result['error'] = "The method should be GET."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+            ##return JsonResponse(result)
+
+        try:
+            query_server = get_query_server_config(name='impala')
+            db = dbms.get(request.user, query_server=query_server)
+        except Exception:
+            result['status'] = 0
+            result['error'] = "Sorry, an error occured: Impossible to connect to the db."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+
         ## config.yml and reference.yml in CGSCONFIG (see the config file in the root directory of this package)
         ## reading the config.yml file to define the datastructure (looking for HBase with "variant" in names)
 
-        ## reading the reference.yml file to define the link between the API resource and HBase/impala fields
-        ## impalaFields =
-        ## hbaseFields =
+        #Find the location of config.yml (locally then globally)
+        local_config_path = os.path.join(ROOT_PATH,'config.yml')
+        if not os.path.exists(local_config_path):
+            result['status'] = 0
+            result['error'] = "The local config file of the variants app could not be found. Please check your installation."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+        local_config_file = open(local_config_path)
+        global_config_path = yaml.load(local_config_file.read())["CGSCONFIG"]
+        local_config_file.close()
+        if not os.path.exists(global_config_path):
+            result['status'] = 0
+            result['error'] = "The global config file could not be found. Please check your installation."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+        global_config_file = open(global_config_path)
+        global_config = yaml.load(global_config_file)
+        
+        #Look for the variants_api substructure (general version for any number of substructures)and its "database" element to get variants_table
+        api_substructure = [a for substructure in global_config['substructures'] if substructure['name']=='variants_api']
+        if len(api_substructure) > 0:
+            variants_table= api_substructure[0].get("database",None)
+        else:
+            result['status'] = 0
+            result['error'] = "The config file does not have a database for variants_api. Please check your installation."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+        if not variants_table:
+            result['status'] = 0
+            result['error'] = "The config file does not have a database for variants_api. Please check your installation."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+        global_config_file.close()
+        
+        fprint(variants_table)
+        
+        #Look for the variant_api.yml config file to load the list of fields in the SELECT statement of the query
+        api_config_path = os.path.join(os.path.dirname(global_config_path),'sourceFiles/variants_api.yml')
+        if not os.path.exists(api_config_path):
+            result['status'] = 0
+            result['error'] = "The api config file could not be found. Please check your installation."
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+        api_config_file = open(api_config_path)
+        api_config = yaml.load(api_config_file)
+        api_config_file.close()
+        for key in api_config.keys():
+            if key == 'variants': #TODO: Verify if others are necessary or if we only keep the variables associated with variants
+                for var in api_config[key]['columns'].keys():
+                    listVars.append(key+'_'+var)
+        listVars = [var.replace('.','_') for var in listVars]
+        
+        hql = "SELECT " + ",".join(listVars) + " FROM " + variants_table + " WHERE variants_id = " + pk
+        fprint(hql)
+        
+        try:
+            query = hql_query(hql)
+            handle = db.execute_and_wait(query, timeout_sec=5.0)
 
-        ## request HBase through Impala with the ID (or row key)
-        ##Connexion db
-        # query_server = get_query_server_config(name='impala')
-        # db = dbms.get(request.user, query_server=query_server)
-        # hql = "SELECT ... FROM ..."
-        # query = hql_query(hql)
-        # handle = db.execute_and_wait(query, timeout_sec=5.0)
-        # if handle:
-        #     data = db.fetch(handle, rows=1)
-        #     result['data'] = list(data.rows())
-        #     result['status'] = 1
-        #     db.close(handle)
+        except Exception:
+            result['status'] = 0
+            result['error'] = "The query cannot be performed: %s" % hql
+            return HttpResponse(json.dumps(result), mimetype="application/json")
+
+        if handle:
+            data = db.fetch(handle)
+            var_result = []
+            #Reverse dictionary of the fields config for the variants_api substructure 
+            api_reverse_fields = {}
+            for field in fields_config.keys():
+                if fields_config[field]["substructures"].get("variants_api",None):
+                    api_reverse_fields[fields_config[field]["substructures"]["variants_api"].replace(".","_")]= field 
+            columns = [columns.append(api_reverse_fields['col']) for col in data.columns()]
+            for row in data.rows():
+                row_dict = {}
+                for index in range(len(row)):
+                    row_dict[columns[index]] = row[index]
+                var_result.append(row_dict)
+            
+            result['variants'] = json.dumps(var_result)
+            result['status'] = 1
+            db.close(handle)
+
+        else:
+            result['error'] = 'No result found.'
+            return HttpResponse(json.dumps(result), mimetype="application/json")
 
         return Response(result)
 
@@ -219,7 +307,8 @@ class VariantDetail(APIView):
 
         return Response(json.dumps({'status':status}))
 
-    def search(self, request, terms=''):
+    @api_view(['POST'])
+    def search(self, request):
         # Search for a specific variant
         result = {'status':1,'text':'Everything is alright.'}
 
@@ -231,7 +320,6 @@ class VariantDetail(APIView):
         See the documentation
 
         """
-        result = {'status': -1}
         # ## check request
         if request.method != 'POST':
             result['status'] = -1
