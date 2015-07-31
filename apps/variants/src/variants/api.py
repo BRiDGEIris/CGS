@@ -307,7 +307,6 @@ class VariantDetail(APIView):
 
         return Response(json.dumps({'status':status}))
 
-    @api_view(['POST'])
     def search(self, request):
         # Search for a specific variant
         result = {'status':1,'text':'Everything is alright.'}
