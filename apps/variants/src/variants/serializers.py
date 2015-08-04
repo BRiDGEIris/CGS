@@ -202,9 +202,12 @@ class VariantSerializer(serializers.Serializer):
     info = serializers.DictField()
     calls = VariantCallSerializer(variantcall_data='', many=True)
 
-    def __init__(self, request, pk, *args, **kwargs):
+
+    def __init__(self, request=None, pk=None, *args, **kwargs):
         # TODO: for now we simply load the data inside the 'data' field, we should load
         # the data directly inside the current object
+        if request is None and pk is None:
+            return super(VariantSerializer, self).__init__(*args, **kwargs)
 
         # We take the information in the database. As we are interested in one variant, we use HBase
         hbaseApi = HbaseApi(user=request.user)
