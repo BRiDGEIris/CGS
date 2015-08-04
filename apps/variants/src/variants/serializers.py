@@ -234,10 +234,10 @@ class VariantSerializer(serializers.Serializer):
             self.is_valid()
 
     def post(self, request):
-        # Insert a new variant inside the database
+        # Insert a new variant inside the database (Impala - HBase)
         # TODO: it would be great to move the ';'.join() and json.dumps() to converters.py
 
-        # We create the query to put the data
+        # Impala - We create the query to put the data
         query_data = ["" for i in range(dbmap_length()+1)]
 
         query_data[0] = self.variantSetId + '-' + self.referenceName + '-' + self.start + '-' + self.referenceBases + '-' + self.alternateBases
@@ -256,7 +256,7 @@ class VariantSerializer(serializers.Serializer):
         query_data[dbmap('variants.info{}', order=True)] = json.dumps(self.info)
         query_data[dbmap('variants.calls[]', order=True)] = "TODO" # TODO
 
-        # We make the query
+        # Impala- We make the query
         query_server = get_query_server_config(name='impala')
         db = dbms.get(request.user, query_server=query_server)
         query = hql_query("INSERT INTO variant("+",".join(query_data)+")")
@@ -265,6 +265,27 @@ class VariantSerializer(serializers.Serializer):
             db.close(handle)
         else:
             raise Exception("Impossible to create the variant...")
+
+        # HBase - We add the data in that table too
+        hbaseApi = HbaseApi(user=request.user)
+        currentCluster = hbaseApi.getClusters().pop()
+        rowkey = query_data[0]
+        hbase_data = {}
+        query_data[dbmap('variants.variantSetId', database="hbase", order=True)] = self.variantSetId
+        query_data[dbmap('variants.id', database="hbase", order=True)] = self.id
+        query_data[dbmap('variants.names[]', database="hbase", order=True)] = ';'.join(self.names)
+        query_data[dbmap('variants.created', database="hbase", order=True)] = self.created
+        query_data[dbmap('variants.referenceName', database="hbase", order=True)] = self.created
+        query_data[dbmap('variants.start', database="hbase", order=True)] = self.start
+        query_data[dbmap('variants.end', database="hbase", order=True)] = self.end
+        query_data[dbmap('variants.referenceBases', database="hbase", order=True)] = self.referenceBases
+        query_data[dbmap('variants.alternateBases[]', database="hbase", order=True)] = ';'.join(self.alternateBases)
+        query_data[dbmap('variants.quality', database="hbase", order=True)] = self.quality
+        query_data[dbmap('variants.filters[]', database="hbase", order=True)] = ';'.join(self.filter)
+        query_data[dbmap('variants.info{}', database="hbase", order=True)] = json.dumps(self.info)
+        query_data[dbmap('variants.calls[]', database="hbase", order=True)] = "TODO" # TODO
+
+        hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
 
 """
     CallSet

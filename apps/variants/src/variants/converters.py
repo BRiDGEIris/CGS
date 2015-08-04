@@ -336,7 +336,10 @@ def dbmap(json_term, database="impala", order=False):
     for pyvcf in mapping:
         if mapping[pyvcf]['json'] == json_term:
             if order is False: # We want the field name
-                value = mapping[pyvcf]['hbase']
+                if database == 'impala':
+                    value = mapping[pyvcf]['hbase']
+                else: #if hbase
+                    value = mapping[pyvcf]['hbase'].replace('.',':')
             else: # We want the field number
                 value = mapping[pyvcf]['parquet']
 

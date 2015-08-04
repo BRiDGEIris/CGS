@@ -431,7 +431,7 @@ def database_create_variants(request, temporary=False):
     except:
         result['value'] = False
         result['text'] = 'A problem occured when connecting to HBase and creating a table. Check if HBase is activated. Note that this message will also appear if the \'variants\' table in HBase already exists. In that case you need to manually delete it.'
-    
+
 
     return result
 
