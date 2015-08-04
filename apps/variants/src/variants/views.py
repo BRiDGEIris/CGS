@@ -29,7 +29,7 @@ from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
 from impala.models import Dashboard, Controller
 import copy
-from hadoop.fs.hadoopfs import Hdfs
+from hbase.api import HbaseApi
 from django.template.defaultfilters import stringformat, filesizeformat
 from filebrowser.lib.rwx import filetype, rwx
 
@@ -384,10 +384,12 @@ def sample_insert_vcfinfo(request, filename, total_length):
     return samples
 
 """ INITIALIZE THE DATABASE """
+
 def database_create_variants(request, temporary=False):
     # Create the variant table. If temporary is True, it means we need to create a temporary structure as Text to be imported
     # to another variants table (that won't be temporary)
-
+    result = {'value':True,'text':'Everything is alright'}
+    # We install the tables for impala
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json',output_type='json')
     fields = fc.getMappingPyvcfToText()
     pyvcf_fields = fc.getMappingPyvcfToJson()
@@ -421,13 +423,21 @@ def database_create_variants(request, temporary=False):
         query = hql_query("CREATE TABLE variants("+"".join(variants_table)+") stored as parquet;")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
-    return True
+    # We install the variant table for HBase
+    try:
+        hbaseApi = HbaseApi(user=request.user)
+        currentCluster = hbaseApi.getClusters().pop()
+        hbaseApi.createTable(cluster=currentCluster['name'],tableName='variants',columns=[{'properties':{'name':'I'}},{'properties':{'name':'R'}},{'properties':{'name':'F'}}])
+    except:
+        result['value'] = False
+        result['text'] = 'A problem occured when connecting to HBase and creating a table. Check if HBase is activated. Note that this message will also appear if the \'variants\' table in HBase already exists. In that case you need to manually delete it.'
+
+    return result
 
 def database_initialize(request):
     """ Install the tables for this application """
 
-
-    # The (impala) variant table
+    # The variant tables (impala and hbase)
     database_create_variants(request, temporary=False)
 
     # Connexion to the db
@@ -440,10 +450,6 @@ def database_initialize(request):
     # The clinical db
     sql += "DROP TABLE IF EXISTS clinical_sample; CREATE TABLE clinical_sample (sample_id STRING, patient_id STRING, date_of_collection STRING, original_sample_id STRING, status STRING, sample_type STRING, biological_contamination STRING, storage_condition STRING, biobank_id STRING, pn_id STRING) row format delimited fields terminated by ',' stored as textfile;"
 
-    #DROP TABLE IF EXISTS variants; CREATE TABLE variants (id STRING, alternate_bases STRING, calls STRING, names STRING, info STRING, reference_bases STRING, quality DOUBLE, created TIMESTAMP, elem_start BIGINT, elem_end BIGINT, variantset_id STRING); DROP TABLE IF EXISTS variantsets;
-    #CREATE TABLE variantsets (id STRING, dataset_id STRING, metadata STRING, reference_bounds STRING);
-    #DROP TABLE IF EXISTS datasets; CREATE TABLE datasets (id STRING, is_public BOOLEAN, name STRING);'''
-  
     # Executing the different queries
     tmp = sql.split(";")
     for hql in tmp:
