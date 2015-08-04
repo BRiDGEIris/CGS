@@ -4,6 +4,7 @@ from django.conf import settings
 from beeswax.design import hql_query
 from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
+from hbase.api import HbaseApi
 from converters import *
 
 # The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/reference/
@@ -205,33 +206,32 @@ class VariantSerializer(serializers.Serializer):
         # TODO: for now we simply load the data inside the 'data' field, we should load
         # the data directly inside the current object
 
-        # We take the information in the database
-        query_server = get_query_server_config(name='impala')
-        db = dbms.get(request.user, query_server=query_server)
-        query = hql_query("SELECT * FROM variants WHERE pk='"+pk+"'")
-        handle = db.execute_and_wait(query, timeout_sec=5.0)
-        if not handle:
-            raise Exception("Impossible to load the variant...")
+        # We take the information in the database. As we are interested in one variant, we use HBase
+        hbaseApi = HbaseApi(user=request.user)
+        currentCluster = hbaseApi.getClusters().pop()
 
-        # We load it in the current object
-        data = db.fetch(handle, rows=1)
-        json_data = dbmapToJson(list(data.rows()).pop())
-        d = jsonToSerializerData(json_data, self.fields, 'variants')
+        variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=getHbaseColumns(), startRowKey=pk, numRows=1, prefix=False)
+        if len(variant) > 0:
+            variant = variant.pop()
+        else:
+            variant = None
 
-        d['calls'] = []
-        for variants_call in json_data['variants.calls[]']:
-            call = VariantCallSerializer(variantcall_data=variants_call)
-            d['calls'].append(call.data)
+        if variant is not None:
+            # We load it in the current object
+            json_data = hbaseToJson(variant.columns)
+            d = jsonToSerializerData(json_data, self.fields, 'variants')
 
-        # We close the database connection
-        db.close(handle)
+            d['calls'] = []
+            for variants_call in json_data['variants.calls[]']:
+                call = VariantCallSerializer(variantcall_data=variants_call)
+                d['calls'].append(call.data)
 
-        # Load a specific variant
-        kwargs['data'] = d
-        super(VariantSerializer, self).__init__(*args, **kwargs)
+            # Load a specific variant
+            kwargs['data'] = d
+            super(VariantSerializer, self).__init__(*args, **kwargs)
 
-        # TODO: we should remove that method call when we resolve the TODO above.
-        self.is_valid()
+            # TODO: we should remove that method call when we resolve the TODO above.
+            self.is_valid()
 
     def post(self, request):
         # Insert a new variant inside the database

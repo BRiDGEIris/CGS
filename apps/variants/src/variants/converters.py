@@ -279,40 +279,52 @@ class formatConverters(object):
         # Sometimes there is nothing in PyVCF to give information for a specific file created by ourselves.
 
         mapping = {
-        'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1,'type':'string'},
-           'Record.POS':{'json':'variants.start','hbase':'R.P','parquet':2,'type':'int'},
-           'Record.REF':{'json':'variants.referenceBases','hbase':'R.REF','parquet':3,'type':'string'},
-           'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','parquet':4,'type':'list'},
-           'Record.ID':{'json':'variants.info.dbsnp_id','hbase':'I.DBSNP137','parquet':5,'type':'string'},
-           'Record.FILTER':{'json':'variants.filters[]','hbase':'R.FILTER','parquet':6,'type':'list'},
-           'Record.QUAL':{'json':'variants.quality','hbase':'R.QUAL','parquet':7,'type':'float'},
-           'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I.QD','parquet':8,'type':'string'},
-           'Record.INFO.HRun':{'json':'variants.info.largest_homopolymer','hbase':'I.HR','parquet':9,'type':'string'},
-           'Record.INFO.SB':{'json':'variants.strand_bias','hbase':'I.SB','parquet':10,'type':'string'},
-           'Record.INFO.DP':{'json':'variants.calls.info.read_depth','hbase':'F.DPF','parquet':11,'type':'string'},
-           'Record.INFO.MQ0':{'json':'variants.info.mapping_quality_zero_read','hbase':'I.MQ0','parquet':12,'type':'string'},
-           'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I.DS','parquet':13,'type':'string'},
-           'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14,'type':'string'},
-           'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15,'type':'string'},
-           'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16,'type':'string'},
+        'Record.CHROM':{'json':'variants.referenceName','hbase':'R:C','parquet':1,'type':'string'},
+           'Record.POS':{'json':'variants.start','hbase':'R:P','parquet':2,'type':'int'},
+           'Record.REF':{'json':'variants.referenceBases','hbase':'R:REF','parquet':3,'type':'string'},
+           'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R:ALT','parquet':4,'type':'list'},
+           'Record.ID':{'json':'variants.info.dbsnp_id','hbase':'I:DBSNP137','parquet':5,'type':'string'},
+           'Record.FILTER':{'json':'variants.filters[]','hbase':'R:FILTER','parquet':6,'type':'list'},
+           'Record.QUAL':{'json':'variants.quality','hbase':'R:QUAL','parquet':7,'type':'float'},
+           'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I:QD','parquet':8,'type':'string'},
+           'Record.INFO.HRun':{'json':'variants.info.largest_homopolymer','hbase':'I:HR','parquet':9,'type':'string'},
+           'Record.INFO.SB':{'json':'variants.strand_bias','hbase':'I:SB','parquet':10,'type':'string'},
+           'Record.INFO.DP':{'json':'variants.calls.info.read_depth','hbase':'F:DPF','parquet':11,'type':'string'},
+           'Record.INFO.MQ0':{'json':'variants.info.mapping_quality_zero_read','hbase':'I:MQ0','parquet':12,'type':'string'},
+           'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I:DS','parquet':13,'type':'string'},
+           'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I:AN','parquet':14,'type':'string'},
+           'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F:AD','parquet':15,'type':'string'},
+           'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R:SI','parquet':16,'type':'string'},
 
             # The following terms should be correctly defined
-           'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
-           'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18,'type':'string'}, # Ok
-           'todefine3':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
-           'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20,'type':'int'},
-           'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21,'type':'int'},
-           'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
-           'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'list'},
-           'todefine8':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
-           'todefine9':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
-           'todefine10':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
-           'todefine11':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
-           'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28,'type':'list'},
-           'todefine13':{'json':'variants.calls[].info{}','hbase':'R.CALLS_INFO','parquet':29,'type':'dict'},
+           'todefine1':{'json':'variants.variantSetId','hbase':'R:VSI','parquet':17,'type':'string'},
+           'todefine2':{'json':'variants.id','hbase':'R:ID','parquet':18,'type':'string'}, # Ok
+           'todefine3':{'json':'variants.names[]','hbase':'R:NAMES','parquet':19,'type':'list'},
+           'todefine4':{'json':'variants.created','hbase':'R:CREATED','parquet':20,'type':'int'},
+           'todefine5':{'json':'variants.end','hbase':'R:PEND','parquet':21,'type':'int'},
+           'todefine6':{'json':'variants.info{}','hbase':'R:INFO','parquet':22,'type':'dict'},
+           'todefine7':{'json':'variants.calls[]','hbase':'R:CALLS','parquet':23,'type':'list'},
+           'todefine8':{'json':'variants.calls[].callSetId','hbase':'R:CALLS_ID','parquet':24,'type':'string'},
+           'todefine9':{'json':'variants.calls[].callSetName','hbase':'R:CALLS_NAME','parquet':25,'type':'string'},
+           'todefine10':{'json':'variants.calls[].genotype[]','hbase':'R:CALLS_GT','parquet':26,'type':'list'},
+           'todefine11':{'json':'variants.calls[].phaseset','hbase':'R:CALLS_PS','parquet':27,'type':'string'},
+           'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R:CALLS_LHOOD','parquet':28,'type':'list'},
+           'todefine13':{'json':'variants.calls[].info{}','hbase':'R:CALLS_INFO','parquet':29,'type':'dict'},
         }
 
         return mapping
+
+def getHbaseColumns():
+    # Return a list of the different columns for HBase
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
+    mapping = fc.getMapping()
+
+    result = []
+    for pyvcf in mapping:
+        result.append(mapping[pyvcf]['hbase'])
+
+    return result
+
 
 def dbmap(json_term, database="impala", order=False):
     # Return the mapping between a given json name and a specific field name (for Impala typically, but it should be
@@ -384,6 +396,47 @@ def dbmapToJson(data, database="impala"):
             mapped[json_field] = value
 
     return mapped
+
+def hbaseToJson(data):
+    # Map the data received from ONE entry (result.columns) of hbase with multiple columns to a JSON object
+
+    mapped = {}
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
+    mapping = fc.getMapping()
+
+    for pyvcf in mapping:
+
+        json_field = mapping[pyvcf]['json']
+        hbaseColumn = mapping[pyvcf]['hbase']
+        type = mapping[pyvcf]['type']
+
+        try:
+            if type == 'int':
+                mapped[json_field] = int(data[hbaseColumn]['value'])
+            elif type == 'float':
+                mapped[json_field] = float(data[hbaseColumn]['value'])
+            elif type == 'dict':
+                mapped[json_field] = json.loads(data[hbaseColumn]['value'])
+            elif type == 'list':
+                mapped[json_field] = data[data[hbaseColumn]['value']].split(';')
+            else:
+                mapped[json_field] = data[data[hbaseColumn]['value']]
+        except:
+            if type == 'int':
+                value = 0
+            elif type == 'float':
+                value = 0.0
+            elif type == 'dict':
+                value = {}
+            elif type == 'list':
+                value = []
+            else:
+                value = ''
+            mapped[json_field] = value
+
+    return mapped
+
+
 def jsonToSerializerData(json_data, fields, prefix):
     # Convert the json data from dbmapToJson to a data dict used by a DRF Serializer to initialize an object
     # The 'fields' come from the given Serializer. The 'prefix' comes also from the Serializer, it is based
