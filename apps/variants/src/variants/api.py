@@ -286,7 +286,6 @@ class VariantDetail(APIView):
         if len(pk) == 0:
             return Response(json.dumps({'status':-1,'error':'Variant id not given.'}))
 
-        variant_form = VariantSerializer()
         # We ask some information
         variant = VariantSerializer(request=request, pk=pk)
         call = VariantCallSerializer(variantcall_data='')

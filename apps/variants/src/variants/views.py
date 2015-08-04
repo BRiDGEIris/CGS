@@ -32,6 +32,7 @@ import copy
 from hbase.api import HbaseApi
 from django.template.defaultfilters import stringformat, filesizeformat
 from filebrowser.lib.rwx import filetype, rwx
+from hadoop.fs.hadoopfs import Hdfs
 
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.http import Http404, HttpResponse
@@ -370,7 +371,7 @@ def sample_insert_vcfinfo(request, filename, total_length):
                 # We add the samples information
                 for i in xrange(9, len(info)):
                     if info[i]:
-                        samples.append(info[i])
+                        samples.append(info[i].strip())
 
                 # We can stop it here
                 break

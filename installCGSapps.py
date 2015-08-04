@@ -97,7 +97,17 @@ for i in xrange(1, len(sys.argv)):
     app_src = app_directory_prefix+apps[app_name]
     try:
         print("Copying source code to app folder...")
+        # App code
         distutils.dir_util.copy_tree(app_src, app_directory)
+
+        # App static files
+        if not os.path.exists(hue_directory+"/build/static/variants"):
+            try:
+                os.makedirs(hue_directory+"/build/static/variants")
+            except:
+                sys.exit("Impossible to create the static folder 'variants' in '"+hue_directory+"/build/static/variants'.")
+        distutils.dir_util.copy_tree(app_src+"/src/variants/static", hue_directory+"/build/static/variants")
+
     except:
         sys.exit("Impossible to copy data from '"+app_src+"' to '"+app_directory+"'.")
 
