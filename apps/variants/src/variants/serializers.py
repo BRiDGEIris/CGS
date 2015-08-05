@@ -6,6 +6,9 @@ from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
 from hbase.api import HbaseApi
 from converters import *
+import os
+import json
+from views import *
 
 # The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/reference/
 
@@ -14,6 +17,229 @@ class VCFSerializer(serializers.Serializer):
     filename = serializers.CharField(max_length=100)
     patients = serializers.CharField(max_length=1000) # Ids of the different patients inside the vcf, separated by a comma
     analyzed = serializers.BooleanField(default=False)
+
+    def post(self, request, current_analysis):
+        """
+            Insert a new vcf file inside the database
+        """
+        result = {'status': -1,'data': {}}
+
+        # We take the file received
+        if 'vcf' in request.GET:
+            filename = request.GET['vcf']
+        else:
+            result['status'] = 0
+            result['error'] = 'No vcf file was given. You have to give a GET parameter called "vcf" with the filename of your vcf in your hdfs directory.'
+            return result
+
+        # We take the files in the current user directory
+        init_path = directory_current_user(request)
+        files = list_directory_content(request, init_path, ".vcf", True)
+        length = 0
+        for f in files:
+            new_name = f['path'].replace(init_path+"/","", 1)
+            if new_name == filename:
+                length = f['stats']['size']
+                break
+
+        if length == 0:
+            # File not found
+            result['status'] = 0
+            result['error'] = 'The vcf file given was not found in the cgs file system.'
+            return result
+
+        # We take the number of samples (and their name) in the vcf file
+        samples = sample_insert_vcfinfo(request, filename, length)
+        samples_quantity = len(samples)
+        if samples_quantity == 0:
+            error_sample = True
+            result['status'] = 0
+            result['error'] = 'No sample found in the given file'
+            return result
+
+        # Some checks first about the sample data
+        if request.method != 'POST':
+            result['status'] = 0
+            result['error'] = 'You have to send a POST request.'
+            return result
+
+        if not 'vcf_data' in request.POST:
+            result['status'] = 0
+            result['error'] = 'The vcf data were not given. You have to send a POST field called "vcf_data" with the information about the related file given in parameter.'
+            return result
+
+        raw_lines = request.POST['vcf_data'].split(";")
+        samples_quantity_received = len(raw_lines)
+        if samples_quantity_received == samples_quantity + 1 and not raw_lines[len(raw_lines)-1]:# We allow the final ';'
+            raw_lines.pop()
+            samples_quantity_received = samples_quantity
+
+        if samples_quantity !=  samples_quantity_received:
+            fprint(request.POST['vcf_data'])
+            result['status'] = 0
+            result['error'] = 'The number of samples sent do not correspond to the number of samples found in the vcf file ('+str(samples_quantity_received)+' vs '+str(samples_quantity)+').'
+            return result
+
+        questions, q, files = sample_insert_questions(request)
+
+        questions_quantity = len(q)
+        for raw_line in raw_lines:
+            if len(raw_line.split(",")) != questions_quantity:
+                result['status'] = 0
+                result['error'] = 'The number of information sent do not correspond to the number of questions asked for each sample ('+str(len(raw_line.split(",")))+' vs '+str(questions_quantity)+').'
+                return result
+
+        # Connexion to the db
+        try:
+            query_server = get_query_server_config(name='impala')
+            db = dbms.get(request.user, query_server=query_server)
+            dt = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            result['status'] = 0
+            result['error'] = 'Sorry, an error occured: Impossible to connect to the db.'
+            return result
+
+        hbaseApi = HbaseApi(user=request.user)
+        currentCluster = hbaseApi.getClusters().pop()
+
+        # Now we analyze each sample information
+        tsv_content = ''
+        for raw_line in raw_lines:
+            answers = raw_line.split(",")
+
+            # We check each answer for each question
+            current_sample = {}
+            for key, answer in enumerate(answers):
+
+                # We take the related field
+                field = q[key]
+                info = questions['sample_registration'][field]
+
+                # We check if the information is correct
+                if not type(info) is dict:
+                    pass # Nothing to do here, it's normal. We could compare the sample id received from the ones found in the file maybe.
+                elif info['field'] == 'select':
+                    if not answer in info['fields']:
+                        result['status'] = 0
+                        result['error'] = 'The value "'+str(answer)+'" given for the field "'+field+'" is invalid (Valid values: '+str(info['fields'])+').'
+                        return result
+                else:
+                    # TODO: make the different verification of the 'text' and 'date' format
+                    pass
+
+                current_sample[field] = answer
+
+            fprint(current_sample)
+            if not 'sample_id' in current_sample:
+                current_sample['sample_id'] = ''
+            sample_id = str(current_sample['sample_id'])
+
+            if not 'patient_id' in current_sample:
+                current_sample['patient_id'] = ''
+            patient_id = str(current_sample['patient_id'])
+
+            if not 'sample_collection_date' in current_sample:
+                current_sample['sample_collection_date'] = ''
+            date_of_collection = str(current_sample['sample_collection_date'])
+
+            if not 'original_sample_id' in current_sample:
+                current_sample['original_sample_id'] = ''
+            original_sample_id = str(current_sample['original_sample_id'])
+
+            if not 'collection_status' in current_sample:
+                current_sample['collection_status'] = ''
+            status = str(current_sample['collection_status'])
+
+            if not 'sample_type' in current_sample:
+                current_sample['sample_type'] = ''
+            sample_type = str(current_sample['sample_type'])
+
+            if not 'biological_contamination' in current_sample:
+                current_sample['biological_contamination'] = '0'
+            biological_contamination = str(current_sample['biological_contamination'])
+
+            if not 'sample_storage_condition' in current_sample:
+                current_sample['sample_storage_condition'] = ''
+            storage_condition = str(current_sample['sample_storage_condition'])
+
+            if not 'biobank_id' in current_sample:
+                current_sample['biobank_id'] = ''
+            biobank_id = str(current_sample['biobank_id'])
+
+            if not 'pn_id' in current_sample:
+                current_sample['pn_id'] = ''
+            pn_id = str(current_sample['pn_id'])
+
+            # We create the tsv content
+            tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
+
+
+        # We create the tsv file
+        request.fs.create('/user/'+request.user.username+'/cgs_vcf_import.tsv', overwrite=True, data=tsv_content)
+
+        # We insert the data
+        query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table clinical_sample;")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+        # To analyze the content of the vcf, we need to get it from the hdfs to this node
+        tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=0, length=length)
+        tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
+        f = open(tmp_filename,mode='w')
+        f.write(tmp_vcf)
+        f.close()
+
+        # Now we try to analyze the vcf a little bit more with the correct tool
+        json_filename = tmp_filename+'.cgs.json'
+        convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
+        status = convert.convertVCF2FLATJSON()
+
+        # TODO: do not load anymore the entire file in RAM in one-shot
+        with open(json_filename, 'r') as content_file:
+            json_content = content_file.read()
+            request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
+
+        # We convert the json to text
+        convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
+        status = convert.convertJsonToText(request)
+
+         # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
+        convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
+        status = convert.convertJsonToHbase(request)
+        with open(json_filename+'.hbase', 'r') as content_file:
+            for line in content_file:
+                hbase_data = json.loads(line)
+                rowkey = hbase_data['rowkey']
+                del hbase_data['rowkey']
+                hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+
+
+        # TODO: do not load anymore the entire file in RAM in one-shot
+        with open(json_filename+'.tsv', 'r') as content_file:
+            tsv_content = content_file.read()
+            request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=tsv_content)
+
+        # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
+        database_create_variants(request, temporary=True)
+
+        query = hql_query("load data inpath '/user/"+request.user.username+"/"+json_filename+".tsv' into table variants_tmp_"+request.user.username+";")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+        query = hql_query("insert into table variants select * from variants_tmp_"+request.user.username+";")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+        query = hql_query("drop table variants_tmp_"+request.user.username+";")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+        # We delete the temporary file previously created on this node
+        os.remove(tmp_filename)
+        os.remove(json_filename)
+
+        if status == 'succeeded':
+            result['status'] = 1
+        else:
+            result['status'] = 0
+
+        return result
 
 """
     Dataset

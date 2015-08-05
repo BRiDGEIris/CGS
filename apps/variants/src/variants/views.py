@@ -37,7 +37,6 @@ from hadoop.fs.hadoopfs import Hdfs
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.http import Http404, HttpResponse
 
-from variants import api
 from converters import *
 
 def index(request):
@@ -153,220 +152,8 @@ def sample_insert(request, current_analysis='analysis-id-todo'):
         TODO: We should receive the id of the analysis attached to the submitted file
     """
 
-    result = {'status': -1,'data': {}}
-
-    # We take the file received
-    if 'vcf' in request.GET:
-        filename = request.GET['vcf']
-    else:
-        result['status'] = 0
-        result['error'] = 'No vcf file was given. You have to give a GET parameter called "vcf" with the filename of your vcf in your hdfs directory.'
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    # We take the files in the current user directory
-    init_path = directory_current_user(request)
-    files = list_directory_content(request, init_path, ".vcf", True)
-    length = 0
-    for f in files:
-        new_name = f['path'].replace(init_path+"/","", 1)
-        if new_name == filename:
-            length = f['stats']['size']
-            break
-
-    if length == 0:
-        # File not found
-        result['status'] = 0
-        result['error'] = 'The vcf file given was not found in the cgs file system.'
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    # We take the number of samples (and their name) in the vcf file
-    samples = sample_insert_vcfinfo(request, filename, length)
-    samples_quantity = len(samples)
-    if samples_quantity == 0:
-        error_sample = True
-        return render('sample.insert.interface.mako', request, locals())
-
-    # Some checks first about the sample data
-    if request.method != 'POST':
-        result['status'] = 0
-        result['error'] = 'You have to send a POST request.'
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    if not 'vcf_data' in request.POST:
-        result['status'] = 0
-        result['error'] = 'The vcf data were not given. You have to send a POST field called "vcf_data" with the information about the related file given in parameter.'
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    raw_lines = request.POST['vcf_data'].split(";")
-    samples_quantity_received = len(raw_lines)
-    if samples_quantity_received == samples_quantity + 1 and not raw_lines[len(raw_lines)-1]:# We allow the final ';'
-        raw_lines.pop()
-        samples_quantity_received = samples_quantity
-
-    if samples_quantity !=  samples_quantity_received:
-        fprint(request.POST['vcf_data'])
-        result['status'] = 0
-        result['error'] = 'The number of samples sent do not correspond to the number of samples found in the vcf file ('+str(samples_quantity_received)+' vs '+str(samples_quantity)+').'
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    questions, q, files = sample_insert_questions(request)
-
-    questions_quantity = len(q)
-    for raw_line in raw_lines:
-        if len(raw_line.split(",")) != questions_quantity:
-            result['status'] = 0
-            result['error'] = 'The number of information sent do not correspond to the number of questions asked for each sample ('+str(len(raw_line.split(",")))+' vs '+str(questions_quantity)+').'
-            return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    # Connexion to the db
-    try:
-        query_server = get_query_server_config(name='impala')
-        db = dbms.get(request.user, query_server=query_server)
-        dt = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    except Exception:
-        result['status'] = 0
-        result['error'] = 'Sorry, an error occured: Impossible to connect to the db.'
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    hbaseApi = HbaseApi(user=request.user)
-    currentCluster = hbaseApi.getClusters().pop()
-
-    # Now we analyze each sample information
-    tsv_content = ''
-    for raw_line in raw_lines:
-        answers = raw_line.split(",")
-
-        # We check each answer for each question
-        current_sample = {}
-        for key, answer in enumerate(answers):
-
-            # We take the related field
-            field = q[key]
-            info = questions['sample_registration'][field]
-
-            # We check if the information is correct
-            if not type(info) is dict:
-                pass # Nothing to do here, it's normal. We could compare the sample id received from the ones found in the file maybe.
-            elif info['field'] == 'select':
-                if not answer in info['fields']:
-                    result['status'] = 0
-                    result['error'] = 'The value "'+str(answer)+'" given for the field "'+field+'" is invalid (Valid values: '+str(info['fields'])+').'
-                    return HttpResponse(json.dumps(result), mimetype="application/json")
-            else:
-                # TODO: make the different verification of the 'text' and 'date' format
-                pass
-
-            current_sample[field] = answer
-
-        fprint(current_sample)
-        if not 'sample_id' in current_sample:
-            current_sample['sample_id'] = ''
-        sample_id = str(current_sample['sample_id'])
-
-        if not 'patient_id' in current_sample:
-            current_sample['patient_id'] = ''
-        patient_id = str(current_sample['patient_id'])
-
-        if not 'sample_collection_date' in current_sample:
-            current_sample['sample_collection_date'] = ''
-        date_of_collection = str(current_sample['sample_collection_date'])
-
-        if not 'original_sample_id' in current_sample:
-            current_sample['original_sample_id'] = ''
-        original_sample_id = str(current_sample['original_sample_id'])
-
-        if not 'collection_status' in current_sample:
-            current_sample['collection_status'] = ''
-        status = str(current_sample['collection_status'])
-
-        if not 'sample_type' in current_sample:
-            current_sample['sample_type'] = ''
-        sample_type = str(current_sample['sample_type'])
-
-        if not 'biological_contamination' in current_sample:
-            current_sample['biological_contamination'] = '0'
-        biological_contamination = str(current_sample['biological_contamination'])
-
-        if not 'sample_storage_condition' in current_sample:
-            current_sample['sample_storage_condition'] = ''
-        storage_condition = str(current_sample['sample_storage_condition'])
-
-        if not 'biobank_id' in current_sample:
-            current_sample['biobank_id'] = ''
-        biobank_id = str(current_sample['biobank_id'])
-
-        if not 'pn_id' in current_sample:
-            current_sample['pn_id'] = ''
-        pn_id = str(current_sample['pn_id'])
-
-        # We create the tsv content
-        tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
-
-
-    # We create the tsv file
-    request.fs.create('/user/'+request.user.username+'/cgs_vcf_import.tsv', overwrite=True, data=tsv_content)
-
-    # We insert the data
-    query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table clinical_sample;")
-    handle = db.execute_and_wait(query, timeout_sec=30.0)
-
-    # To analyze the content of the vcf, we need to get it from the hdfs to this node
-    tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=0, length=length)
-    tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
-    f = open(tmp_filename,mode='w')
-    f.write(tmp_vcf)
-    f.close()
-
-    # Now we try to analyze the vcf a little bit more with the correct tool
-    json_filename = tmp_filename+'.cgs.json'
-    convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
-    status = convert.convertVCF2FLATJSON()
-
-    # TODO: do not load anymore the entire file in RAM in one-shot
-    with open(json_filename, 'r') as content_file:
-        json_content = content_file.read()
-        request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
-
-    # We convert the json to text
-    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
-    status = convert.convertJsonToText(request)
-
-     # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
-    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
-    status = convert.convertJsonToHbase(request)
-    with open(json_filename+'.hbase', 'r') as content_file:
-        for line in content_file:
-            hbase_data = json.loads(line)
-            rowkey = hbase_data['rowkey']
-            del hbase_data['rowkey']
-            hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
-
-
-    # TODO: do not load anymore the entire file in RAM in one-shot
-    with open(json_filename+'.tsv', 'r') as content_file:
-        tsv_content = content_file.read()
-        request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=tsv_content)
-
-    # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
-    database_create_variants(request, temporary=True)
-
-    query = hql_query("load data inpath '/user/"+request.user.username+"/"+json_filename+".tsv' into table variants_tmp_"+request.user.username+";")
-    handle = db.execute_and_wait(query, timeout_sec=30.0)
-
-    query = hql_query("insert into table variants select * from variants_tmp_"+request.user.username+";")
-    handle = db.execute_and_wait(query, timeout_sec=30.0)
-
-    query = hql_query("drop table variants_tmp_"+request.user.username+";")
-    handle = db.execute_and_wait(query, timeout_sec=30.0)
-
-    # We delete the temporary file previously created on this node
-    os.remove(tmp_filename)
-    os.remove(json_filename)
-
-    if status == 'succeeded':
-        result['status'] = 1
-    else:
-        result['status'] = 0
+    vcfSerializer = VCFSerializer()
+    result = vcfSerializer.post(request=request, current_analysis=current_analysis)
 
     return HttpResponse(json.dumps(result), mimetype="application/json")
 
@@ -402,7 +189,26 @@ def sample_insert_vcfinfo(request, filename, total_length):
     # We return the different samples in the file
     return samples
 
-""" INITIALIZE THE DATABASE """
+
+
+
+
+
+
+
+###############################
+### INITIALIZE THE DATABASE ###
+###############################
+
+
+
+
+
+
+
+
+
+
 
 def database_create_variants(request, temporary=False):
     # Create the variant table. If temporary is True, it means we need to create a temporary structure as Text to be imported
@@ -515,198 +321,17 @@ def init_example(request):
  
     return render('database.initialize.mako', request, locals())
 
-    
 
 
 
 
-""" RETURN THE INFORMATION RELATED TO A VARIANT """
-def variant_get(request, variant_id):
-    """ Return the variant related to the given id """
-
-    result = {'status': -1,'data': {}}
-  
-    #Connexion db
-    query_server = get_query_server_config(name='impala')
-    db = dbms.get(request.user, query_server=query_server)
-    
-    #Selecting the information related to the variant
-    hql = "SELECT * FROM map_sample_id;"
-    query = hql_query(hql)
-    handle = db.execute_and_wait(query, timeout_sec=5.0)
-    if handle:
-        data = db.fetch(handle, rows=100)
-        result['data'] = list(data.rows())
-        result['status'] = 1
-        db.close(handle)
-
-    #Returning the data
-    return HttpResponse(json.dumps(result), mimetype="application/json")
-
-""" RETURN THE DATA FOR A SAMPLE ID """
-@csrf_exempt
-def sample_search(request):
-    """ Search the data related to a given sample id """
-
-    result = {'status': -1,'data': {}}
-
-    if request.method != 'POST' or not request.POST or not request.POST['sample_id']:
-        result['status'] = 0
-        return HttpResponse(json.dumps(result), mimetype="application/json")
-
-    sample_id = str(request.POST['sample_id'])
-
-    # Database connexion
-    query_server = get_query_server_config(name='impala')
-    db = dbms.get(request.user, query_server=query_server)
-    customer_sample_id = str(request.user.id)+"_"+sample_id
-
-    # Selecting the files related to the sample id
-    hql = "SELECT sample_files.id, sample_files.file_path FROM sample_files JOIN map_sample_id ON sample_files.internal_sample_id = map_sample_id.internal_sample_id WHERE map_sample_id.customer_sample_id = '"+customer_sample_id+"';"
-    query = hql_query(hql)
-    handle = db.execute_and_wait(query, timeout_sec=5.0)
-    if handle:
-        data = db.fetch(handle, rows=100)
-        result['status'] = 1
-        result['data'] = list(data.rows())
-        db.close(handle)
-
-    # Returning the data
-    return HttpResponse(json.dumps(result), mimetype="application/json")
-
-""" METHODS TO IMPLEMENT """
-
-def documentation(request):
-    """ Display the main page of the user documentation """
-
-    # START: TESTS FOR BENCHMARKS
-
-    # END
-
-    return render('documentation.mako', request, locals())
-
-def variant_search(request):
-    """ Return the variant found regarding the post information received """
-
-    result = {'status': -1,'data': {}}
-  
-    # Returning the data
-    return HttpResponse(json.dumps(result), mimetype="application/json")
-  
-def variant_import(request):
-    """ Import variant from the post/get/files information received """
-
-    result = {'status': -1,'data': {}}
-  
-    #Returning the data
-    return HttpResponse(json.dumps(result), mimetype="application/json")
-
-""" OBSOLETE METHOD """
-def api_insert_general(request):
-    """ Insert some data to the hdfs """
-
-    # we list the different file in the current directory
-    info = get_cron_information("http://localhost:14000/webhdfs/v1/user/hdfs/data/?op=LISTSTATUS")
-    files = json.loads(info)
-    filesList = {}
-    for f in files[u"FileStatuses"][u"FileStatus"]:
-        if f[u"pathSuffix"].endswith(".vcf") or f[u"pathSuffix"].endswith(".bam") or f[u"pathSuffix"].endswith(".fastq") or f[u"pathSuffix"].endswith(".fq"):
-            filesList[f[u"pathSuffix"]] = "data/"+f[u"pathSuffix"]
-  
-    final_result = {'status': -1,'data': 'Invalid data sent.'}
-  
-    # We check if we have received some data to import
-    formValidated = False
-    if request.method == 'POST':
-        form = query_insert_form(request.POST, files=filesList)
-        if form.is_valid():
-            samples_ids = form.cleaned_data['samples_ids']
-            selected_file = form.cleaned_data['import_file']
-      
-        if selected_file.endswith(".vcf"):
-            file_type = "vcf"
-        elif selected_file.endswith(".bam"):
-            file_type = "bam"
-        elif selected_file.endswith("fastq") or selected_file.endswith("fq"):
-            file_type = "fastq"
-        else:
-            file_type = "unknown"
-      
-        #Generating the random id for the file
-        file_random_id = create_random_file_id()
-      
-        #Compressing the file and writing it directly in the correct directory
-        path = "data/"+selected_file.strip()
-        destination = file_random_id+".bz2"
-        try:
-            result = compress_file(path, destination)
-        except Exception:
-            fprint("Impossible to compress and upload the file")
-            result = False
-            pass
-      
-        if not result:
-            final_result['status'] = 0
-            final_result['data'] = 'Sorry, an error occured: Impossible to find the file, compress it or upload it.'
-        
-        #If the compression was okay, we can insert the data in db
-        if result:
-            try:
-                #Connexion to the db
-                query_server = get_query_server_config(name='impala')
-                db = dbms.get(request.user, query_server=query_server)
-                dt = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            except Exception:
-                get_cron_information("http://localhost:14000/webhdfs/v1/user/hdfs/compressed_data/"+destination+"?op=DELETE")
-                final_result['status'] = 0
-                final_result['data'] = 'Sorry, an error occured: Impossible to connect to the db.'
-                fprint("Impossible to connect to the database")
-                result = False
-                pass
-          
-        if result:
-            #We insert the data to the db
-            #TODO: Not very optimized if we have 100 samples ids to insert...
-            tmp = samples_ids.split('\n')
-            for current_id in tmp:
-                current_id = current_id.strip()
-                if len(current_id) > 0:
-                    customer_sample_id = str(request.user.id)+"_"+current_id
-                internal_sample_id = ""
-            
-                #We check if we already have an internal_sample_id for the customer_sample_id given
-                query = hql_query("SELECT internal_sample_id FROM map_sample_id WHERE customer_sample_id = '"+customer_sample_id+"' LIMIT 1;")
-                handle = db.execute_and_wait(query, timeout_sec=5.0)
-            
-                if handle:
-                    #If yes, we take the same as before.
-                    data = db.fetch(handle, rows=1)
-                    tmp = list(data.rows())
-                    if(len(tmp) > 0):
-                        internal_sample_id = tmp.pop().pop()
-            
-                    if len(internal_sample_id) == 0:
-                        #If not, we create a new customer_sample_id and save it
-                        internal_sample_id = str(request.user.id)+"_"+create_random_sample_id()
-              
-                    query = hql_query("INSERT INTO map_sample_id VALUES('"+internal_sample_id+"', '"+customer_sample_id+"', '"+dt+"', '"+dt+"');")
-                    handle = db.execute_and_wait(query, timeout_sec=5.0)
-          
-                    #We can insert the data now.
-                    query = hql_query("INSERT INTO TABLE sample_files VALUES ('"+file_random_id+"', '"+internal_sample_id+"', '"+destination+"', '"+file_type+"', '"+dt+"', '"+dt+"')")
-                    handle = db.execute_and_wait(query, timeout_sec=5.0)
-       
-            #End
-            final_result['status'] = 1
-            final_result['data'] = 'Data correctly added.'
-      
-    #Returning the data
-    return HttpResponse(json.dumps(final_result), mimetype="application/json")
 
 
-""" ************** """
-""" SOME FUNCTIONS """
-""" ************** """
+#########################
+### General functions ###
+#########################
+
+
 
 
 
