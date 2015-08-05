@@ -117,12 +117,12 @@ class SampleList(APIView):
 
 class DatasetDetail(APIView):
 
-    def get(self, request, pk=-1):
+    def get(self, request, pk):
         # Information on a specific dataset
         result = {'status':1,'text':'Everything is alright.'}
         return Response(result)
 
-    def delete(self, request, pk=-1):
+    def delete(self, request, pk):
         # Delete a specific dataset
         result = {'status':1,'text':'Everything is alright.'}
         return Response(result)
@@ -135,19 +135,64 @@ class DatasetList(APIView):
         result = {'status':1,'text':'Everything is alright.'}
         return Response(result)
 
-class ReadGroupSetDetail(APIView):
+class ReferenceDetail(APIView):
 
-    def get(self, request, pk=-1):
-        # Information on a specific readgroupset
+    def get(self, request, pk):
+        # Information on a specific reference
+        result = {'status':1,'text':'Everything is alright.'}
+        return Response(result)
+
+    def search(self, request):
+        result = {'status':1,'text':'Everything is alright.'}
+        return Response(result)
+
+class ReferenceSetDetail(APIView):
+
+    def get(self, request, pk):
+        # Information on a specific referenceset
+        result = {'status':1,'text':'Everything is alright.'}
+        return Response(result)
+
+    def search(self, request):
         result = {'status':1,'text':'Everything is alright.'}
         return Response(result)
 
 class VariantSetDetail(APIView):
 
     def get(self, request, pk=-1):
+        if pk == "search":
+            return self.search(request=request)
+
         # Information on a specific variantset
         result = {'status':1,'text':'Everything is alright.'}
         return Response(result)
+
+    def action(self, request, pk, action_type):
+        if action_type == 'export':
+            return self.action_export(request=request, pk=pk)
+        elif action_type == 'importVariants':
+            return self.action_import_variants(request=request, pk=pk)
+        elif action_type == 'mergeVariants':
+            return self.action_merge_variants(request=request, pk=pk)
+
+        result = {'status':0,'text':'Invalid action.'}
+        return HttpResponse(json.dumps(result), mimetype="application/json")
+
+    def action_export(self, request, pk):
+        result = {'status':1,'text':'To implement.'}
+        return HttpResponse(json.dumps(result), mimetype="application/json")
+
+    def action_import_variants(self, request, pk):
+        result = {'status':1,'text':'To implement.'}
+        return HttpResponse(json.dumps(result), mimetype="application/json")
+
+    def action_merge_variants(self, request, pk):
+        result = {'status':1,'text':'To implement.'}
+        return HttpResponse(json.dumps(result), mimetype="application/json")
+
+    def search(self, request):
+        result = {'status':1,'text':'To implement.'}
+        return HttpResponse(json.dumps(result), mimetype="application/json")
 
     def post(self, request, format=None):
         """ Creates variant data by asynchronously importing the provided information into HBase.
@@ -282,6 +327,8 @@ class VariantDetail(APIView):
 
     def get(self, request, pk=""):
         # Returns some information on a specific variant
+        if pk == 'search':
+            return self.search(request=request)
 
         if len(pk) == 0:
             return Response(json.dumps({'status':-1,'error':'Variant id not given.'}))
@@ -489,6 +536,13 @@ class CallSetDetail(APIView):
 
     def get(self, request, pk=-1):
         # Information on a specific callset
-        result = {'status':1,'text':'Everything is alright.'}
-        return Response(result)
+        if pk == 'search':
+            return self.search(request=request)
+        result = {'status':1,'text':'To implement.'}
 
+        return HttpResponse(json.dumps(result), mimetype="application/json")
+
+    def search(self, request):
+        result = {'status':1,'text':'To implement.'}
+
+        return HttpResponse(json.dumps(result), mimetype="application/json")
