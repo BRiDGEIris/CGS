@@ -178,6 +178,87 @@ class formatConverters(object):
         status = "succeeded"
         return(status)
 
+    def convertJsonToHBase(self, request, analysis):
+        # The json received should be created previously by 'convertPyvcfToJson' as we will want a json object/line
+        # We will create a json as output too, but it will be adapted to the one used in HBase
+
+        # 1st: we take the json to text information
+        mapping = self.getMappingJsonToText()
+
+        json_to_hbase = {}
+        for key in mapping:
+            json_to_hbase[mapping[key]['json']] = mapping[key]['hbase'].replace('.',':')
+
+        # 2nd: we create a temporary file in which we will save each future line for HBase
+        f = open(self.input_file, 'r')
+        o = open(self.output_file, 'w')
+
+        for json_line in f:
+            variant = json.loads(json_line)
+
+            output_line = {}
+            rowkey = analysis + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + variant['variants.alternateBases'][0]
+            output_line['rowkey'] = rowkey
+            variant['variants.id'] = rowkey
+            for attribute in variant:
+
+                if attribute == 'variants.calls[]':
+                    # Specific case for the variants.calls[] (in fact, it will be variants.calls[0], variants.calls[1], ...
+
+                    for call in variant[attribute]:
+                        # We take the sample id associated to this call
+                        sampleId = call['info']['sampleId']
+                        variantId = variant['variants.id']
+
+                        # We generate the table name based on the 'sampleId' and the 'id' field (containing the information on the current analysis)
+                        table_name_for_call = hbaseTableName(variantId, sampleId)
+
+                        # We got through the different fields for this object
+                        subline = {}
+                        for subattribute in call:
+                            if subattribute == 'info{}':
+                                for infokey in call[subattribute]:
+                                    if subattribute in subline: # each dict info is separated through '|'
+                                        subline[subattribute] += '|'
+
+                                    if type(call[subattribute][infokey]) is list:
+                                        # The first element of multiple values separated by ';' is the info key.
+                                        subline[subattribute] += infokey+';'+';'.join(str(value) for value in call[subattribute][infokey])
+                                    else:
+                                        subline[subattribute] += infokey+';'+str(call[subattribute][infokey])
+                            else:
+                                if type(call[subattribute]) is list:
+                                    subline[subattribute] = ';'.join(str(value) for value in call[subattribute])
+                                else:
+                                    subline[subattribute] = str(call[subattribute])
+
+                        # We merge the information for the given call.
+                        output_line[table_name_for_call] = '|'.join(key+'|'+value for key, value in subline)
+
+                elif attribute == 'info{}':
+                    for infokey in variant[attribute]:
+                        if attribute in output_line: # each dict info is separated through '|'
+                            output_line[attribute] += '|'
+
+                        if type(variant[attribute][infokey]) is list:
+                            # The first element of multiple values separated by ';' is the info key.
+                            output_line[attribute] += infokey+';'+';'.join(str(value) for value in variant[attribute][infokey])
+                        else:
+                            output_line[attribute] += infokey+';'+str(variant[attribute][infokey])
+                elif type(attribute) is list:
+                    output_line[json_to_hbase[attribute]] = ';'.join(str(value) for value in variant[attribute])
+                else:
+                    output_line[json_to_hbase[attribute]] = str(variant[attribute])
+
+            # We generate the line
+            o.write(','.join(output_line).replace('"','')+'\n')
+
+        f.close()
+        o.close()
+
+        status = "succeeded"
+        return(status)
+
     def convertJSON2FLATJSON(self):
         """ Convert a JSON file (for the format, see the documentation) to a flat JSON file or more accurately a series of JSON lines  
         """
@@ -274,6 +355,7 @@ class formatConverters(object):
 
         return new_mapping
 
+
     def getMapping(self):
         # Return the mapping between PyVCF, JSON, HBase and Parquet (parquet position only)
         # Sometimes there is nothing in PyVCF to give information for a specific file created by ourselves.
@@ -313,6 +395,13 @@ class formatConverters(object):
         }
 
         return mapping
+
+def hbaseTableName(variantId, sampleId):
+    # Return the hbase table name for a given variantId (generated by us, already containing information about the analysis)
+    # and a sampleId
+
+    # TODO: to improve, for now it is way too long
+    return 'I:'+variantId+'_'+sampleId
 
 def getHbaseColumns():
     # Return a list of the different columns for HBase

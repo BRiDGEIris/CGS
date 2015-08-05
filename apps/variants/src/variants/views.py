@@ -147,8 +147,11 @@ def sample_insert_interface(request):
     return render('sample.insert.interface.mako', request, locals())
 
 @csrf_exempt
-def sample_insert(request):
-    """ Insert sample data to database """
+def sample_insert(request, current_analysis='analysis-id-todo'):
+    """
+        Insert sample data to database
+        TODO: We should receive the id of the analysis attached to the submitted file
+    """
 
     result = {'status': -1,'data': {}}
 
@@ -225,6 +228,9 @@ def sample_insert(request):
         result['error'] = 'Sorry, an error occured: Impossible to connect to the db.'
         return HttpResponse(json.dumps(result), mimetype="application/json")
 
+    hbaseApi = HbaseApi(user=request.user)
+    currentCluster = hbaseApi.getClusters().pop()
+
     # Now we analyze each sample information
     tsv_content = ''
     for raw_line in raw_lines:
@@ -296,6 +302,7 @@ def sample_insert(request):
         # We create the tsv content
         tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
 
+
     # We create the tsv file
     request.fs.create('/user/'+request.user.username+'/cgs_vcf_import.tsv', overwrite=True, data=tsv_content)
 
@@ -324,10 +331,21 @@ def sample_insert(request):
     convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
     status = convert.convertJsonToText(request)
 
+     # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
+    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
+    status = convert.convertJsonToHbase(request)
+    with open(json_filename+'.hbase', 'r') as content_file:
+        for line in content_file:
+            hbase_data = json.loads(line)
+            rowkey = hbase_data['rowkey']
+            del hbase_data['rowkey']
+            hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+
+
     # TODO: do not load anymore the entire file in RAM in one-shot
     with open(json_filename+'.tsv', 'r') as content_file:
-        json_content = content_file.read()
-        request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=json_content)
+        tsv_content = content_file.read()
+        request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=tsv_content)
 
     # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
     database_create_variants(request, temporary=True)
