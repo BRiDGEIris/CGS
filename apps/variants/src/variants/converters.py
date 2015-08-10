@@ -539,9 +539,9 @@ def hbaseToJson(data):
             elif type == 'dict':
                 mapped[json_field] = json.loads(data[hbaseColumn].value)
             elif type == 'list':
-                mapped[json_field] = data[data[hbaseColumn].value].split(';')
+                mapped[json_field] = data[hbaseColumn].value.split(';')
             else:
-                mapped[json_field] = data[data[hbaseColumn].value]
+                mapped[json_field] = data[hbaseColumn].value
         except:
             if type == 'int':
                 value = 0
