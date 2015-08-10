@@ -3,28 +3,18 @@
 import json
 import logging
 
-from django.core.urlresolvers import reverse
-from django.utils.translation import ugettext as _
 from django.http import HttpResponse
 
 from beeswax.design import hql_query
 from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
-from impala.models import Dashboard, Controller
 
-#from desktop.lib.django_util import JsonResponse
-from desktop.lib.rest.http_client import RestException
-from exception import handle_rest_exception
-
-from variants.decorators import api_error_handler
-
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import routers, serializers, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.renderers import JSONRenderer
 from serializers import *
+from models import *
 
 import os
 from settings import ROOT_PATH
@@ -37,12 +27,6 @@ LOG = logging.getLogger(__name__)
 #     return inspect.currentframe().f_back.f_lineno
 
 
-def fprint(txt):
-    """ Print some text in a debug file """
-    f = open('/home/cloudera/debug.txt', 'a')
-    f.write(str(txt)+"\n")
-    f.close()
-    return True
 
 class VCFDetail(APIView):
     """
@@ -71,7 +55,7 @@ class VCFDetail(APIView):
         return Response(result.data)
 
 
-    def post(self, request, format=None):
+    def post(self, request, filename, current_analysis, from_views=False):
         """
             Receive a new vcf to analyze
         :param request:
@@ -80,12 +64,20 @@ class VCFDetail(APIView):
         """
         result = {'status':1,'text':'Everything is alright.'}
 
-        v = VCFSerializer(data=request.data)
-        if v.is_valid():
-            return Response(result, status=status.HTTP_201_CREATED)
+        v = VCFSerializer()
+        result = v.post(request=request, filename=filename, current_analysis=current_analysis)
+        if result['status'] == 1:
+            if from_views is True:
+                return result
+            else:
+                return Response(result, status=status.HTTP_201_CREATED)
 
         result = {'status':1,'text':'Something went wrong.'}
-        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        if from_views is True:
+            return result
+        else:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 class SampleDetail(APIView):
     """

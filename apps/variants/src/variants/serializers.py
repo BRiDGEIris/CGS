@@ -1,14 +1,13 @@
 from rest_framework import serializers
 from variants.models import *
-from django.conf import settings
 from beeswax.design import hql_query
 from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
 from hbase.api import HbaseApi
 from converters import *
+from models import *
 import os
 import json
-from views import *
 
 # The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/reference/
 
@@ -18,19 +17,11 @@ class VCFSerializer(serializers.Serializer):
     patients = serializers.CharField(max_length=1000) # Ids of the different patients inside the vcf, separated by a comma
     analyzed = serializers.BooleanField(default=False)
 
-    def post(self, request, current_analysis):
+    def post(self, request, filename, current_analysis):
         """
             Insert a new vcf file inside the database
         """
         result = {'status': -1,'data': {}}
-
-        # We take the file received
-        if 'vcf' in request.GET:
-            filename = request.GET['vcf']
-        else:
-            result['status'] = 0
-            result['error'] = 'No vcf file was given. You have to give a GET parameter called "vcf" with the filename of your vcf in your hdfs directory.'
-            return result
 
         # We take the files in the current user directory
         init_path = directory_current_user(request)
@@ -204,19 +195,27 @@ class VCFSerializer(serializers.Serializer):
 
          # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
-        status = convert.convertJsonToHbase(request)
+        status = convert.convertJsonToHBase(request, analysis=current_analysis)
+        with open(json_filename+'.hbase', 'r') as content_file:
+            tsv_content = content_file.read()
+            request.fs.create('/user/'+request.user.username+'/'+json_filename+'.hbase', overwrite=True, data=tsv_content)
+
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:
-                hbase_data = json.loads(line)
-                rowkey = hbase_data['rowkey']
-                del hbase_data['rowkey']
-                hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+                try:
+                    hbase_data = json.loads(line)
+                    rowkey = hbase_data['rowkey']
+                    del hbase_data['rowkey']
+                    hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+                except:
+                    fprint("Error while reading the HBase json file")
 
-
+        """ TODO: activate again the impala part when everything is working with hbase first
         # TODO: do not load anymore the entire file in RAM in one-shot
         with open(json_filename+'.tsv', 'r') as content_file:
             tsv_content = content_file.read()
             request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=tsv_content)
+
 
         # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
         database_create_variants(request, temporary=True)
@@ -229,6 +228,7 @@ class VCFSerializer(serializers.Serializer):
 
         query = hql_query("drop table variants_tmp_"+request.user.username+";")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
+        """
 
         # We delete the temporary file previously created on this node
         os.remove(tmp_filename)

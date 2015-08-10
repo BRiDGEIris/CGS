@@ -6,9 +6,12 @@ if not path in sys.path:
 del path
 import string
 import collections
-from .exception import *
 import shutil
 import vcf
+import os
+
+from subprocess import *
+import json
 
 class formatConverters(object):
     """
@@ -68,9 +71,15 @@ class formatConverters(object):
         vcf_reader = vcf.Reader(f)
         for record in vcf_reader:
             record = vcf_reader.next()
+            call_i = 0
+            linedic = {}
+            linedic['variants.calls[]'] = [{} for i in xrange(0, len(record.samples))]
+
             for s in record.samples:
+                linedic['variants.calls[]'][call_i] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
+
                 if hasattr(s.data,'DP'):
-                    call_DP = s.data.DP
+                    linedic['variants.calls[]'][call_i]['undetermined'] = s.data.DP
                 else:
                     call_DP = "NA"
 
@@ -92,10 +101,14 @@ class formatConverters(object):
                 else:
                     FILTER = str(record.FILTER)
 
-                linedic = {}
+                linedic['variants.calls[]'][call_i]['genotype[]'].append(current_gt)
 
                 for pyvcf_parameter in mapping:
 
+                    if mapping[pyvcf_parameter] == 'variants.calls[]' or mapping[pyvcf_parameter] == 'variants.calls[].info{}':
+                        continue
+
+                    # We detect how to take the information from PyVCF, then we take it
                     if pyvcf_parameter.startswith('Record.INFO'):
                         field = pyvcf_parameter.split('.')
                         try:
@@ -124,9 +137,19 @@ class formatConverters(object):
                         value = ""
                         print("Parameter '"+pyvcf_parameter+"' not supported.")
 
-                    linedic[mapping[pyvcf_parameter]] = value
+                    # Now we decide how to store the information in json
+                    if mapping[pyvcf_parameter].startswith('variants.calls[].'):
+                        tmp = mapping[pyvcf_parameter].split('variants.calls[].')
+                        if tmp[1] != 'info{}':
+                            linedic['variants.calls[]'][call_i][tmp[1]] = value
+                    else:
+                        linedic[mapping[pyvcf_parameter]] = value
+
+                # We have to add the sample id for the current sample
+                linedic['variants.calls[]'][call_i]['info{}']['sampleId'] = s.sample
 
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
+                call_i += 1
 
         o.close()
         f.close()
@@ -167,7 +190,7 @@ class formatConverters(object):
                         output_line[mapping[json_key]] = str(variant[json_key])
 
                 # We generate the rowkey
-                output_line[0] = variant['readGroupSets.readGroups.sampleID'] + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + alternate
+                output_line[0] = variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + alternate
 
                 # We generate the line
                 o.write(','.join(output_line).replace('"','')+'\n')
@@ -183,7 +206,7 @@ class formatConverters(object):
         # We will create a json as output too, but it will be adapted to the one used in HBase
 
         # 1st: we take the json to text information
-        mapping = self.getMappingJsonToText()
+        mapping = self.getMapping()
 
         json_to_hbase = {}
         for key in mapping:
@@ -197,7 +220,7 @@ class formatConverters(object):
             variant = json.loads(json_line)
 
             output_line = {}
-            rowkey = analysis + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + variant['variants.alternateBases'][0]
+            rowkey = analysis + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + variant['variants.alternateBases[]'][0]
             output_line['rowkey'] = rowkey
             variant['variants.id'] = rowkey
             for attribute in variant:
@@ -207,7 +230,9 @@ class formatConverters(object):
 
                     for call in variant[attribute]:
                         # We take the sample id associated to this call
-                        sampleId = call['info']['sampleId']
+                        if not 'info{}' in call:
+                            continue
+                        sampleId = call['info{}']['sampleId']
                         variantId = variant['variants.id']
 
                         # We generate the table name based on the 'sampleId' and the 'id' field (containing the information on the current analysis)
@@ -220,6 +245,8 @@ class formatConverters(object):
                                 for infokey in call[subattribute]:
                                     if subattribute in subline: # each dict info is separated through '|'
                                         subline[subattribute] += '|'
+                                    else:
+                                        subline[subattribute] = ''
 
                                     if type(call[subattribute][infokey]) is list:
                                         # The first element of multiple values separated by ';' is the info key.
@@ -233,7 +260,7 @@ class formatConverters(object):
                                     subline[subattribute] = str(call[subattribute])
 
                         # We merge the information for the given call.
-                        output_line[table_name_for_call] = '|'.join(key+'|'+value for key, value in subline)
+                        output_line[table_name_for_call] = '|'.join(key+'|'+value for key, value in subline.iteritems())
 
                 elif attribute == 'info{}':
                     for infokey in variant[attribute]:
@@ -251,7 +278,7 @@ class formatConverters(object):
                     output_line[json_to_hbase[attribute]] = str(variant[attribute])
 
             # We generate the line
-            o.write(','.join(output_line).replace('"','')+'\n')
+            o.write(json.dumps(output_line)+'\n')
 
         f.close()
         o.close()
@@ -371,25 +398,25 @@ class formatConverters(object):
            'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I.QD','parquet':8,'type':'string'},
            'Record.INFO.HRun':{'json':'variants.info.largest_homopolymer','hbase':'I.HR','parquet':9,'type':'string'},
            'Record.INFO.SB':{'json':'variants.strand_bias','hbase':'I.SB','parquet':10,'type':'string'},
-           'Record.INFO.DP':{'json':'variants.calls.info.read_depth','hbase':'F.DPF','parquet':11,'type':'string'},
+           'Record.INFO.DP':{'json':'variants.calls[].info.read_depth','hbase':'F.DPF','parquet':11,'type':'string'},
            'Record.INFO.MQ0':{'json':'variants.info.mapping_quality_zero_read','hbase':'I.MQ0','parquet':12,'type':'string'},
            'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I.DS','parquet':13,'type':'string'},
            'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14,'type':'string'},
-           'Record.INFO.AD':{'json':'variants.calls.info.confidence_by_depth','hbase':'F.AD','parquet':15,'type':'string'},
+           'Record.INFO.AD':{'json':'variants.calls[].info.confidence_by_depth','hbase':'F.AD','parquet':15,'type':'string'},
            'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16,'type':'string'},
 
             # The following terms should be correctly defined
            'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
            'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18,'type':'string'}, # Ok
-           'todefine3':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
+           'Call.sample':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
            'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20,'type':'int'},
            'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21,'type':'int'},
            'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
            'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'list'},
            'todefine8':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
            'todefine9':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
-           'todefine10':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
-           'todefine11':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
+           'Call.gt_bases':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
+           'Call.phased':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
            'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28,'type':'list'},
            'todefine13':{'json':'variants.calls[].info{}','hbase':'R.CALLS_INFO','parquet':29,'type':'dict'},
         }
