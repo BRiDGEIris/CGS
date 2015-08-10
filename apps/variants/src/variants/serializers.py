@@ -403,10 +403,15 @@ class VariantCallSerializer(serializers.Serializer):
         # We load the data based on the information we receive from the database.
         # TODO: dynamic loading (to not have to rewrite the fields one-by-one)
         d = {}
-
         # We load the data inside a 'data' dict, based on the current field above
-        json_data = dbmapToJson(variantcall_data)
+        json_data = hbaseVariantCallToJson(variantcall_data)
+
+
         d = jsonToSerializerData(json_data, self.fields, 'variants.calls[]')
+
+        tmp = open('superhello.txt','w')
+        tmp.write('variant call: '+str(json_data)+"\n\n"+str(self.fields)+'\n\n'+str(d))
+        tmp.close()
 
         # Now we can call the classical constructor
         kwargs['data'] = d
@@ -438,8 +443,7 @@ class VariantSerializer(serializers.Serializer):
         # We take the information in the database. As we are interested in one variant, we use HBase
         hbaseApi = HbaseApi(user=request.user)
         currentCluster = hbaseApi.getClusters().pop()
-
-        variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=getHbaseColumns(), startRowKey=pk, numRows=1, prefix=False)
+        variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=['R','I','F'], startRowKey=pk, numRows=1, prefix=False)
 
         if len(variant) > 0:
             variant = variant.pop()
@@ -453,7 +457,7 @@ class VariantSerializer(serializers.Serializer):
 
             d['calls'] = []
             for variants_call in json_data['variants.calls[]']:
-                call = VariantCallSerializer(variantcall_data=variants_call)
+                call = VariantCallSerializer(variantcall_data=variants_call.value)
                 d['calls'].append(call.data)
 
             # Load a specific variant

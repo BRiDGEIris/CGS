@@ -430,7 +430,7 @@ def hbaseTableName(variantId, sampleId):
     # and a sampleId
 
     # TODO: to improve, for now it is way too long
-    return 'I:'+variantId+'_'+sampleId
+    return 'I:CALL_'+variantId+'_'+sampleId
 
 def getHbaseColumns():
     # Return a list of the different columns for HBase
@@ -518,6 +518,31 @@ def dbmapToJson(data, database="impala"):
 
     return mapped
 
+def hbaseVariantCallToJson(raw_call):
+    # Map a given call from HBase to a json object
+    mapped = {}
+
+    raw_info = raw_call.split('info{}')
+    if len(raw_info) > 1:
+        subinfo = raw_info[1].split('|')
+        for i in xrange(0, len(subinfo), 2):
+            subsubinfo = subinfo[i+1].split(';')
+            if len(subsubinfo) > 1 or '[]' in subinfo[i]:
+                mapped['variants.calls[].info{}.'+subinfo[i]] = subsubinfo
+            else:
+                mapped['variants.calls[].info{}.'+subinfo[i]] = subinfo[i+1]
+
+    info = raw_info[0].split('|')
+    for i in xrange(0, len(info), 2):
+        if i+1 < len(info):
+            subinfo = info[i+1].split(';')
+            if len(subinfo) > 1 or '[]' in info[i]:
+                mapped['variants.calls[].'+info[i]] = subinfo
+            else:
+                mapped['variants.calls[].'+info[i]] = info[i+1]
+
+    return mapped
+
 def hbaseToJson(data):
     # Map the data received from ONE entry (result.columns) of hbase with multiple columns to a JSON object
 
@@ -525,6 +550,7 @@ def hbaseToJson(data):
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
     mapping = fc.getMapping()
 
+    # Basic data to map
     for pyvcf in mapping:
 
         json_field = mapping[pyvcf]['json']
@@ -555,6 +581,13 @@ def hbaseToJson(data):
                 value = ''
             mapped[json_field] = value
 
+    # Now we need to take care of calls
+    mapped['variants.calls[]'] = []
+    for hbase_field in data:
+        if not hbase_field.startswith('I:CALL_'):
+            continue
+        mapped['variants.calls[]'].append(data[hbase_field])
+
     return mapped
 
 
@@ -571,8 +604,11 @@ def jsonToSerializerData(json_data, fields, prefix):
             type = '{}'
         else:
             type = ''
-        d[field] = json_data[prefix+'.'+field+type]
 
+        try:
+            d[field] = json_data[prefix+'.'+field+type]
+        except:
+            pass
     return d
 
 def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):

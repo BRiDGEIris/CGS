@@ -214,7 +214,6 @@ class VariantDetail(APIView):
 
         # We ask some information
         variant = VariantSerializer(request=request, pk=pk)
-        call = VariantCallSerializer(variantcall_data='')
 
         #return Response(json.dumps({'status':-1,'error':'Variant id invalid or problem while loading the variant.'}))
         return Response(variant.data)
