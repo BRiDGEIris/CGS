@@ -79,7 +79,7 @@ class formatConverters(object):
                 linedic['variants.calls[]'][call_i] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
 
                 if hasattr(s.data,'DP'):
-                    linedic['variants.calls[]'][call_i]['undetermined'] = s.data.DP
+                    linedic['variants.calls[]'][call_i]['DP'] = s.data.DP
                 else:
                     call_DP = "NA"
 
@@ -109,7 +109,9 @@ class formatConverters(object):
                         continue
 
                     # We detect how to take the information from PyVCF, then we take it
-                    if pyvcf_parameter.startswith('Record.INFO'):
+                    if pyvcf_parameter == 'Record.ALT':
+                        value = ALT
+                    elif pyvcf_parameter.startswith('Record.INFO'):
                         field = pyvcf_parameter.split('.')
                         try:
                             value = record.INFO[field.pop()]
