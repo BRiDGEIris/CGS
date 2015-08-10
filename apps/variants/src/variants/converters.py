@@ -528,20 +528,20 @@ def hbaseToJson(data):
     for pyvcf in mapping:
 
         json_field = mapping[pyvcf]['json']
-        hbaseColumn = mapping[pyvcf]['hbase']
+        hbaseColumn = mapping[pyvcf]['hbase'].replace('.',':')
         type = mapping[pyvcf]['type']
 
         try:
             if type == 'int':
-                mapped[json_field] = int(data[hbaseColumn]['value'])
+                mapped[json_field] = int(data[hbaseColumn].value)
             elif type == 'float':
-                mapped[json_field] = float(data[hbaseColumn]['value'])
+                mapped[json_field] = float(data[hbaseColumn].value)
             elif type == 'dict':
-                mapped[json_field] = json.loads(data[hbaseColumn]['value'])
+                mapped[json_field] = json.loads(data[hbaseColumn].value)
             elif type == 'list':
-                mapped[json_field] = data[data[hbaseColumn]['value']].split(';')
+                mapped[json_field] = data[data[hbaseColumn].value].split(';')
             else:
-                mapped[json_field] = data[data[hbaseColumn]['value']]
+                mapped[json_field] = data[data[hbaseColumn].value]
         except:
             if type == 'int':
                 value = 0

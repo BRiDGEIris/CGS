@@ -440,6 +440,7 @@ class VariantSerializer(serializers.Serializer):
         currentCluster = hbaseApi.getClusters().pop()
 
         variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=getHbaseColumns(), startRowKey=pk, numRows=1, prefix=False)
+
         if len(variant) > 0:
             variant = variant.pop()
         else:
