@@ -261,6 +261,9 @@ class formatConverters(object):
                                 else:
                                     subline[subattribute] = str(call[subattribute])
 
+                            if subline[subattribute] == "None":
+                                subline[subattribute] = ""
+
                         # We merge the information for the given call.
                         output_line[table_name_for_call] = '|'.join(key+'|'+value for key, value in subline.iteritems())
 
@@ -274,6 +277,7 @@ class formatConverters(object):
                             output_line[attribute] += infokey+';'+';'.join(str(value) for value in variant[attribute][infokey])
                         else:
                             output_line[attribute] += infokey+';'+str(variant[attribute][infokey])
+
                 elif type(attribute) is list:
                     output_line[json_to_hbase[attribute]] = ';'.join(str(value) for value in variant[attribute])
                 else:
@@ -537,7 +541,10 @@ def hbaseVariantCallToJson(raw_call):
         if i+1 < len(info):
             subinfo = info[i+1].split(';')
             if len(subinfo) > 1 or '[]' in info[i]:
-                mapped['variants.calls[].'+info[i]] = subinfo
+                if len(subinfo) == 1 and subinfo[0] == "":
+                    mapped['variants.calls[].'+info[i]] = []
+                else:
+                    mapped['variants.calls[].'+info[i]] = subinfo
             else:
                 mapped['variants.calls[].'+info[i]] = info[i+1]
 
