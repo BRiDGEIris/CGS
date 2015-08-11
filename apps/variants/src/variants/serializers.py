@@ -94,7 +94,8 @@ class VCFSerializer(serializers.Serializer):
         currentCluster = hbaseApi.getClusters().pop()
 
         # Now we analyze each sample information
-        tsv_content = ''
+        tsv_path = '/user/'+request.user.username+'/cgs_vcf_import.tsv'
+        request.fs.create(tsv_path, overwrite=True, data='')
         for raw_line in raw_lines:
             answers = raw_line.split(",")
 
@@ -162,21 +163,20 @@ class VCFSerializer(serializers.Serializer):
             pn_id = str(current_sample['pn_id'])
 
             # We create the tsv content
-            tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
-
-
-        # We create the tsv file
-        request.fs.create('/user/'+request.user.username+'/cgs_vcf_import.tsv', overwrite=True, data=tsv_content)
+            tsv_content = sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
+            request.fs.append(tsv_path, data=tsv_content)
 
         # We insert the data
         query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table clinical_sample;")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         # To analyze the content of the vcf, we need to get it from the hdfs to this node
-        tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=0, length=length, bufsize=length)
+        buffer = 1024*1024
         tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
         f = open(tmp_filename,mode='w')
-        f.write(tmp_vcf)
+        for offset in xrange(0, length, buffer):
+            tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=offset, length=buffer, bufsize=buffer)
+            f.write(tmp_vcf)
         f.close()
 
         # Now we try to analyze the vcf a little bit more with the correct tool
@@ -184,10 +184,11 @@ class VCFSerializer(serializers.Serializer):
         convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
         status = convert.convertVCF2FLATJSON()
 
-        # TODO: do not load anymore the entire file in RAM in one-shot
+        # We put the output on hdfs
+        request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data='')
         with open(json_filename, 'r') as content_file:
-            json_content = content_file.read()
-            request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data=json_content)
+            for line in content_file:
+                request.fs.append('/user/'+request.user.username+'/'+json_filename, data=line)
 
         # We convert the json to text
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
@@ -196,9 +197,10 @@ class VCFSerializer(serializers.Serializer):
          # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
         status = convert.convertJsonToHBase(request, analysis=current_analysis)
+        request.fs.create('/user/'+request.user.username+'/'+json_filename+'.hbase', overwrite=True, data='')
         with open(json_filename+'.hbase', 'r') as content_file:
-            tsv_content = content_file.read()
-            request.fs.create('/user/'+request.user.username+'/'+json_filename+'.hbase', overwrite=True, data=tsv_content)
+            for line in content_file:
+                request.fs.append('/user/'+request.user.username+'/'+json_filename+'.hbase', data=line)
 
         tmp = open('superhello.txt','a')
         with open(json_filename+'.hbase', 'r') as content_file:
