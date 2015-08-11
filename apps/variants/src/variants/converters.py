@@ -70,11 +70,9 @@ class formatConverters(object):
 
         vcf_reader = vcf.Reader(f)
         for record in vcf_reader:
-            record = vcf_reader.next()
             call_i = 0
             linedic = {}
             linedic['variants.calls[]'] = [{} for i in xrange(0, len(record.samples))]
-
             for s in record.samples:
                 linedic['variants.calls[]'][call_i] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
 
@@ -152,7 +150,6 @@ class formatConverters(object):
 
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
                 call_i += 1
-
         o.close()
         f.close()
 
@@ -285,7 +282,6 @@ class formatConverters(object):
 
             # We generate the line
             o.write(json.dumps(output_line)+'\n')
-
         f.close()
         o.close()
 

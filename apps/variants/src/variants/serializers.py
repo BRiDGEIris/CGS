@@ -173,7 +173,7 @@ class VCFSerializer(serializers.Serializer):
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         # To analyze the content of the vcf, we need to get it from the hdfs to this node
-        tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=0, length=length)
+        tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=0, length=length, bufsize=length)
         tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
         f = open(tmp_filename,mode='w')
         f.write(tmp_vcf)
@@ -200,6 +200,7 @@ class VCFSerializer(serializers.Serializer):
             tsv_content = content_file.read()
             request.fs.create('/user/'+request.user.username+'/'+json_filename+'.hbase', overwrite=True, data=tsv_content)
 
+        tmp = open('superhello.txt','a')
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:
                 try:
