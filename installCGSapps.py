@@ -111,6 +111,15 @@ for i in xrange(1, len(sys.argv)):
     except:
         sys.exit("Impossible to copy data from '"+app_src+"' to '"+app_directory+"'.")
 
+    # We create a directory for the cgs system
+    try:
+        app_install = subprocess.Popen("hadoop fs -mkdir /user/cgs && hadoop fs -chmod -R 777 /user/cgs",
+                                       stdin=False, shell=True, stdout=subprocess.PIPE)
+        app_install.communicate()
+    except Exception as e:
+        print(e.message)
+        sys.exit("Error while creating the /user/cgs directory on HDFS.")
+
 # We restart hue
 try:
     app_install = subprocess.Popen("service hue stop && service hue start", stdin=False, shell=True, stdout=subprocess.PIPE)

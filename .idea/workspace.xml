@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/installCGSapps.py" afterPath="$PROJECT_DIR$/installCGSapps.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
     </list>
     <ignored path="cgs-apps.iws" />
@@ -62,11 +64,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="serializers.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.47808766" vertical-offset="2655" max-vertical-offset="9660">
-                  <caret line="201" column="31" selection-start-line="201" selection-start-column="31" selection-end-line="201" selection-end-column="31" />
+                <state vertical-scroll-proportion="-12.714286" vertical-offset="2404" max-vertical-offset="9660">
+                  <caret line="184" column="41" selection-start-line="184" selection-start-column="41" selection-end-line="184" selection-end-column="41" />
                   <folding>
                     <element signature="e#0#38#0" expanded="true" />
                   </folding>
@@ -89,7 +91,7 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="13.142858" vertical-offset="3728" max-vertical-offset="10560">
+                <state vertical-scroll-proportion="13.142858" vertical-offset="3728" max-vertical-offset="10545">
                   <caret line="224" column="37" selection-start-line="224" selection-start-column="37" selection-end-line="224" selection-end-column="37" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
@@ -110,6 +112,16 @@
               </provider>
             </entry>
           </file>
+          <file leaf-file-name="installCGSapps.py" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/installCGSapps.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="0.8271447" vertical-offset="1079" max-vertical-offset="2115">
+                  <caret line="115" column="103" selection-start-line="115" selection-start-column="103" selection-end-line="115" selection-end-column="103" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
         </leaf>
       </split-first>
       <split-second>
@@ -117,8 +129,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.7211155" vertical-offset="2202" max-vertical-offset="10545">
-                  <caret line="184" column="65" selection-start-line="184" selection-start-column="65" selection-end-line="184" selection-end-column="65" />
+                <state vertical-scroll-proportion="0.7410359" vertical-offset="3072" max-vertical-offset="10530">
+                  <caret line="243" column="66" selection-start-line="243" selection-start-column="66" selection-end-line="243" selection-end-column="66" />
                   <folding />
                 </state>
               </provider>
@@ -143,7 +155,6 @@
         <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.insert.interface.mako" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/query.index.interface.mako" />
-        <option value="$PROJECT_DIR$/installCGSapps.py" />
         <option value="$PROJECT_DIR$/installForTest.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/models.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/views.py" />
@@ -151,6 +162,7 @@
         <option value="$PROJECT_DIR$/apps/variants/src/variants/api.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
+        <option value="$PROJECT_DIR$/installCGSapps.py" />
       </list>
     </option>
   </component>
@@ -830,14 +842,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/installCGSapps.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="1105" max-vertical-offset="1980">
-          <caret line="108" column="108" selection-start-line="102" selection-start-column="8" selection-end-line="108" selection-end-column="108" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/installForTest.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="1035" max-vertical-offset="1965">
@@ -902,9 +906,19 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-12.714286" vertical-offset="2404" max-vertical-offset="9660">
+          <caret line="184" column="41" selection-start-line="184" selection-start-column="41" selection-end-line="184" selection-end-column="41" />
+          <folding>
+            <element signature="e#0#38#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="13.142858" vertical-offset="3728" max-vertical-offset="10560">
+        <state vertical-scroll-proportion="13.142858" vertical-offset="3728" max-vertical-offset="10545">
           <caret line="224" column="37" selection-start-line="224" selection-start-column="37" selection-end-line="224" selection-end-column="37" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
@@ -912,13 +926,11 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
+    <entry file="file://$PROJECT_DIR$/installCGSapps.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.47808766" vertical-offset="2655" max-vertical-offset="9660">
-          <caret line="201" column="31" selection-start-line="201" selection-start-column="31" selection-end-line="201" selection-end-column="31" />
-          <folding>
-            <element signature="e#0#38#0" expanded="true" />
-          </folding>
+        <state vertical-scroll-proportion="0.8271447" vertical-offset="1079" max-vertical-offset="2115">
+          <caret line="115" column="103" selection-start-line="115" selection-start-column="103" selection-end-line="115" selection-end-column="103" />
+          <folding />
         </state>
       </provider>
     </entry>

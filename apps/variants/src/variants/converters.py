@@ -681,7 +681,6 @@ def is_number(s):
 
     return False
 
-
 def flatten(d, parent_key='', sep='.'):
     items = []
     for k, v in d.items():

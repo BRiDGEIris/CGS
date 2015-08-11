@@ -94,7 +94,7 @@ class VCFSerializer(serializers.Serializer):
         currentCluster = hbaseApi.getClusters().pop()
 
         # Now we analyze each sample information
-        tsv_path = '/user/'+request.user.username+'/cgs_vcf_import.tsv'
+        tsv_path = '/user/cgs/cgs_'+request.user.username+'_vcf_import.tsv'
         request.fs.create(tsv_path, overwrite=True, data='')
         for raw_line in raw_lines:
             answers = raw_line.split(",")
@@ -167,7 +167,7 @@ class VCFSerializer(serializers.Serializer):
             request.fs.append(tsv_path, data=tsv_content)
 
         # We insert the data
-        query = hql_query("load data inpath '/user/"+request.user.username+"/cgs_vcf_import.tsv' into table clinical_sample;")
+        query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_vcf_import.tsv' into table clinical_sample;")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         # To analyze the content of the vcf, we need to get it from the hdfs to this node
@@ -185,10 +185,10 @@ class VCFSerializer(serializers.Serializer):
         status = convert.convertVCF2FLATJSON()
 
         # We put the output on hdfs
-        request.fs.create('/user/'+request.user.username+'/'+json_filename, overwrite=True, data='')
+        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
         with open(json_filename, 'r') as content_file:
             for line in content_file:
-                request.fs.append('/user/'+request.user.username+'/'+json_filename, data=line)
+                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=line)
 
         # We convert the json to text
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
@@ -197,10 +197,10 @@ class VCFSerializer(serializers.Serializer):
          # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
         status = convert.convertJsonToHBase(request, analysis=current_analysis)
-        request.fs.create('/user/'+request.user.username+'/'+json_filename+'.hbase', overwrite=True, data='')
+        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:
-                request.fs.append('/user/'+request.user.username+'/'+json_filename+'.hbase', data=line)
+                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
 
         tmp = open('superhello.txt','a')
         with open(json_filename+'.hbase', 'r') as content_file:
@@ -217,13 +217,13 @@ class VCFSerializer(serializers.Serializer):
         # TODO: do not load anymore the entire file in RAM in one-shot
         with open(json_filename+'.tsv', 'r') as content_file:
             tsv_content = content_file.read()
-            request.fs.create('/user/'+request.user.username+'/'+json_filename+'.tsv', overwrite=True, data=tsv_content)
+            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.tsv', overwrite=True, data=tsv_content)
 
 
         # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
         database_create_variants(request, temporary=True)
 
-        query = hql_query("load data inpath '/user/"+request.user.username+"/"+json_filename+".tsv' into table variants_tmp_"+request.user.username+";")
+        query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_"+json_filename+".tsv' into table variants_tmp_"+request.user.username+";")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         query = hql_query("insert into table variants select * from variants_tmp_"+request.user.username+";")
