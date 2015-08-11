@@ -202,17 +202,36 @@ class VCFSerializer(serializers.Serializer):
             for line in content_file:
                 request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
 
-        tmp = open('superhello.txt','a')
+        tmpf = open('superhello.txt','w')
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:
                 try:
+                    # We create the json content
                     hbase_data = json.loads(line)
                     rowkey = hbase_data['rowkey']
                     del hbase_data['rowkey']
-                    hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
-                except:
-                    fprint("Error while reading the HBase json file")
 
+                    # We check the data already in the database, maybe we have already a corresponding variant
+                    try:
+                        old_variant = VariantSerializer(request=request, pk=rowkey)
+                        tmpf.write('Found :'+str(old_variant.initial_data['names'])+'\n')
+                        names = [hbase_data['R:NAMES']]
+                        for old_name in old_variant.initial_data['names']:
+                            if old_name not in names:
+                                names.append(old_name)
+                        hbase_data['R:NAMES'] = '|'.join(names)
+
+                        hbaseApi.deleteColumn(cluster=currentCluster['name'], tableName='variants', row=rowkey, column='R:NAMES')
+                    except Exception as e:
+                        tmpf.write('Error ('+str(e.message)+'):/.')
+                        pass
+
+                    # We can save the new variant
+                    hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+                except Exception as e:
+                    fprint("Error while reading the HBase json file")
+                    tmpf.write('Error ('+str(e.message)+'):/.')
+        tmpf.close()
         """ TODO: activate again the impala part when everything is working with hbase first
         # TODO: do not load anymore the entire file in RAM in one-shot
         with open(json_filename+'.tsv', 'r') as content_file:
@@ -408,13 +427,7 @@ class VariantCallSerializer(serializers.Serializer):
         d = {}
         # We load the data inside a 'data' dict, based on the current field above
         json_data = hbaseVariantCallToJson(variantcall_data)
-
-
         d = jsonToSerializerData(json_data, self.fields, 'variants.calls[]')
-
-        tmp = open('superhello.txt','w')
-        tmp.write('variant call: '+str(json_data)+"\n\n"+str(self.fields)+'\n\n'+str(d))
-        tmp.close()
 
         # Now we can call the classical constructor
         kwargs['data'] = d

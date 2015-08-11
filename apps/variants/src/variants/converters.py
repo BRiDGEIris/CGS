@@ -569,6 +569,8 @@ def hbaseToJson(data):
                 mapped[json_field] = json.loads(data[hbaseColumn].value)
             elif type == 'list':
                 mapped[json_field] = data[hbaseColumn].value.split(';')
+                if len(mapped[json_field]) == 1:
+                    mapped[json_field] = data[hbaseColumn].value.split('|')
             else:
                 mapped[json_field] = data[hbaseColumn].value
         except:
