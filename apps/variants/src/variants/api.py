@@ -55,7 +55,7 @@ class VCFDetail(APIView):
         return Response(result.data)
 
 
-    def post(self, request, filename, current_analysis, from_views=False):
+    def post(self, request, filename, current_analysis, current_organization, from_views=False):
         """
             Receive a new vcf to analyze
         :param request:
@@ -65,7 +65,7 @@ class VCFDetail(APIView):
         result = {'status':1,'text':'Everything is alright.'}
 
         v = VCFSerializer()
-        result = v.post(request=request, filename=filename, current_analysis=current_analysis)
+        result = v.post(request=request, filename=filename, current_analysis=current_analysis, current_organization=current_organization)
         if result['status'] == 1:
             if from_views is True:
                 return result

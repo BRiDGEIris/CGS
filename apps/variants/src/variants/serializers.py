@@ -17,7 +17,7 @@ class VCFSerializer(serializers.Serializer):
     patients = serializers.CharField(max_length=1000) # Ids of the different patients inside the vcf, separated by a comma
     analyzed = serializers.BooleanField(default=False)
 
-    def post(self, request, filename, current_analysis):
+    def post(self, request, filename, current_analysis, current_organization):
         """
             Insert a new vcf file inside the database
         """
@@ -196,7 +196,7 @@ class VCFSerializer(serializers.Serializer):
 
          # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
-        status = convert.convertJsonToHBase(request, analysis=current_analysis)
+        status = convert.convertJsonToHBase(request, analysis=current_analysis, organization=current_organization)
         request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:

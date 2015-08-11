@@ -200,7 +200,7 @@ class formatConverters(object):
         status = "succeeded"
         return(status)
 
-    def convertJsonToHBase(self, request, analysis):
+    def convertJsonToHBase(self, request, analysis, organization):
         # The json received should be created previously by 'convertPyvcfToJson' as we will want a json object/line
         # We will create a json as output too, but it will be adapted to the one used in HBase
 
@@ -219,7 +219,7 @@ class formatConverters(object):
             variant = json.loads(json_line)
 
             output_line = {}
-            rowkey = analysis + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + variant['variants.alternateBases[]'][0]
+            rowkey = organization + '-' + analysis + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + variant['variants.alternateBases[]'][0]
             output_line['rowkey'] = rowkey
             variant['variants.id'] = rowkey
             for attribute in variant:
@@ -430,7 +430,7 @@ def hbaseTableName(variantId, sampleId):
     # and a sampleId
 
     # TODO: to improve, for now it is way too long
-    return 'I:CALL_'+variantId+'_'+sampleId
+    return 'I:CALL_'+sampleId
 
 def getHbaseColumns():
     # Return a list of the different columns for HBase

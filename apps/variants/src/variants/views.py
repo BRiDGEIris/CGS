@@ -113,7 +113,7 @@ def sample_insert_interface(request):
     return render('sample.insert.interface.mako', request, locals())
 
 @csrf_exempt
-def sample_insert(request, current_analysis='analysis-id-todo'):
+def sample_insert(request, current_analysis='0', current_organization='ulb'):
     """
         Insert sample data to database
         TODO: We should receive the id of the analysis attached to the submitted file
@@ -126,7 +126,7 @@ def sample_insert(request, current_analysis='analysis-id-todo'):
         return HttpResponse(json.dumps(result), mimetype="application/json")
 
     vcfDetail = VCFDetail()
-    result = vcfDetail.post(request=request, filename=filename, current_analysis=current_analysis, from_views=True)
+    result = vcfDetail.post(request=request, filename=filename, current_analysis=current_analysis, current_organization=current_organization, from_views=True)
     return HttpResponse(json.dumps(result), mimetype="application/json")
 
 
