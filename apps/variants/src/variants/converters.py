@@ -9,6 +9,9 @@ import collections
 import shutil
 import vcf
 import os
+import avro
+from avro.io import DatumReader, DatumWriter
+from avro.datafile import DataFileReader, DataFileWriter
 
 from beeswax.design import hql_query
 from beeswax.server import dbms
@@ -56,9 +59,8 @@ class formatConverters(object):
         Output file: %s
         Converting method""" % (self.input_type, self.output_type, self.converting_method))
 
-    def convertVCF2FLATJSON(self):
-        """ Convert a VCF file to a FLAT JSON file
-        Note: this function is a temporary function that should be replaced in future versions.
+    def convertVcfToFlatJson(self, organization="ulb", analysis="0"):
+        """ Convert a vcf file to a flat json file
         Check the doc: https://pyvcf.readthedocs.org/en/latest/API.html#vcf-model-call
         """
         if self.input_type not in ['vcf','vcf.gz'] or self.output_type != 'jsonflat':
@@ -73,37 +75,33 @@ class formatConverters(object):
 
         vcf_reader = vcf.Reader(f)
         for record in vcf_reader:
-            call_i = 0
             linedic = {}
-            linedic['variants.calls[]'] = [{} for i in xrange(0, len(record.samples))]
             for s in record.samples:
-                linedic['variants.calls[]'][call_i] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
+                # We initialize the flat json (the specific name for the call column for each sample will be computed below)
+                linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
+                linedic['variants.alternateBases[]'] = []
+                linedic['variants.filters[]'] = []
 
+                # We get the data common for all the samples
                 if hasattr(s.data,'DP'):
-                    linedic['variants.calls[]'][call_i]['DP'] = s.data.DP
+                    linedic['variants.calls[]']['info{}']['read_depth'] = s.data.DP
                 else:
-                    call_DP = "NA"
+                    linedic['variants.calls[]']['info{}']['read_depth'] = "NA"
 
                 if hasattr(s.data,'GT') and s.data.GT is not None:
-                    current_gt = s.data.GT
-                else:
-                    current_gt = ""
+                    linedic['variants.calls[]']['genotype[]'].append(s.data.GT)
 
-                if len(uniqueInList(current_gt.split('|'))) > 1:
+                if len(uniqueInList(linedic['variants.calls[]']['genotype[]'])) > 1:
                     call_het = "Heterozygous"
                 else:
                     call_het = "Homozygous"
                 if isinstance(record.ALT, list):
-                    ALT = '|'.join([str(a) for a in record.ALT])
-                else:
-                    ALT = record.ALT
+                    linedic['variants.alternateBases[]'] = record.ALT
+
                 if isinstance(record.FILTER, list):
-                    FILTER = '|'.join([str(a) for a in record.FILTER])
-                else:
-                    FILTER = str(record.FILTER)
+                    linedic['variants.filters[]'] = record.FILTER
 
-                linedic['variants.calls[]'][call_i]['genotype[]'].append(current_gt)
-
+                # Now we map each additional data depending on the configuration
                 for pyvcf_parameter in mapping:
 
                     if mapping[pyvcf_parameter] == 'variants.calls[]' or mapping[pyvcf_parameter] == 'variants.calls[].info{}':
@@ -111,7 +109,7 @@ class formatConverters(object):
 
                     # We detect how to take the information from PyVCF, then we take it
                     if pyvcf_parameter == 'Record.ALT':
-                        value = ALT
+                        value = '|'.join([str(a) for a in record.ALT])
                     elif pyvcf_parameter.startswith('Record.INFO'):
                         field = pyvcf_parameter.split('.')
                         try:
@@ -141,18 +139,34 @@ class formatConverters(object):
                         print("Parameter '"+pyvcf_parameter+"' not supported.")
 
                     # Now we decide how to store the information in json
-                    if mapping[pyvcf_parameter].startswith('variants.calls[].'):
+                    if mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
+                        tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}')
+                        linedic['variants.calls[]']['info{}'][tmp[1]] = value
+                    elif mapping[pyvcf_parameter].startswith('variants.calls[].'):
                         tmp = mapping[pyvcf_parameter].split('variants.calls[].')
                         if tmp[1] != 'info{}':
-                            linedic['variants.calls[]'][call_i][tmp[1]] = value
+                            linedic['variants.calls[]'][tmp[1]] = value
                     else:
                         linedic[mapping[pyvcf_parameter]] = value
 
                 # We have to add the sample id for the current sample
-                linedic['variants.calls[]'][call_i]['info{}']['sampleId'] = s.sample
+                linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
+
+                # Before writing the data to the json flat, we need to format them according to the avsc file
+                # and the current sample id
+                rowkey = organization + '|' + analysis + '|' + linedic['variants.referenceName'] + '|' + linedic['variants.start'] + '|' + linedic['variants.referenceBases'] + '|' + linedic['variants.alternateBases[]'][0]
+                linedic['variants.calls[].'+rowkey] = json.dumps(linedic['variants.calls[]'])
+                del linedic['variants.calls[]']
+
+                # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
+                for jsonkey in linedic:
+                    if type(linedic[jsonkey]) is list:
+                        if len(linedic[jsonkey]) > 0 :
+                            linedic[jsonkey] = '|'.join(linedic[jsonkey])
+                    elif type(linedic[jsonkey]) is dict:
+                        linedic[jsonkey] = json.dumps(linedic[jsonkey])
 
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
-                call_i += 1
         o.close()
         f.close()
 
@@ -325,16 +339,14 @@ class formatConverters(object):
         f.close()
         h.close()
          
-    def convertFLATJSON2AVRO(self,avscFile = ""):
-        """ Convert a JSON file (for the format, see the documentation) to an AVRO file using AVSC for making the conversion
+    def convertFlatJsonToAvro(self,avscFile = ""):
+        """ Convert a flat json file (for the format, see the documentation) to an avro file using AVSC for making the conversion
         """
         status = "failed"
         if avscFile == "":
             msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
             raise ValueError(msg)
         else:
-            pass
-            """
             schema = avro.schema.parse(open(avscFile).read())
             writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
             h = open(self.input_file)
@@ -348,7 +360,6 @@ class formatConverters(object):
             h.close()
             writer.close()
             status = "succeeded"
-            """
         return(status)
 
         ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file 

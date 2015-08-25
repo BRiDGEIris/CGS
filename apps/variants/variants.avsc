@@ -1,0 +1,33 @@
+{
+  "type" : "record",
+  "name" : "variants",
+  "namespace" : "com.cgs",
+  "fields" : [ 
+	{
+	    	"name" : "pk",
+    		"type" : "string",
+    		"doc"  : "Rowkey for the current variant",
+		"default" : "NA"
+  	}, {
+    		"name" : "R.C",
+    		"type" : "string",
+    		"doc"  : "Reference name",
+		"default" : "NA"
+  	}, {
+   		"name" : "R.P",
+    		"type" : "string",
+    		"doc"  : "Starting position of a variant",
+		"default" : "NA"
+  	}, {
+    		"name" : "R.REF",
+    		"type" : "string",
+    		"doc"  : "Reference",
+		"default" : "NA"
+  	}, {
+    		"name" : "R.ALT",
+    		"type" : "string",
+    		"doc"  : "Alternate",
+		"default" : "NA"
+  	} ],
+  "doc:" : "A basic schema for storing Twitter messages"
+}

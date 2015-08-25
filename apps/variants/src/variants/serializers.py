@@ -184,7 +184,7 @@ class VCFSerializer(serializers.Serializer):
         # Now we try to analyze the vcf a little bit more with the correct tool
         json_filename = tmp_filename+'.cgs.json'
         convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
-        status = convert.convertVCF2FLATJSON()
+        status = convert.convertVcfToFlatJson()
 
         # We put the output on hdfs
         with open(json_filename, 'r') as content_file:
@@ -194,6 +194,7 @@ class VCFSerializer(serializers.Serializer):
                 request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
                 for line in content_file:
                     request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=line)
+
 
         # We need to get the current columns in the parquet table
         query = hql_query("show column stats variants")
@@ -254,6 +255,17 @@ class VCFSerializer(serializers.Serializer):
                     tmpf.write('Error ('+str(e.message)+'):/.')
         tmpf.write("SERIALIZERS > "+str(specific_columns))
         tmpf.close()
+
+        """ For test only """
+        f = open('hbase-temp.json','w')
+        hbase_data = {'R.C':'12','pk':'superrowkey','R.P':'265446','R.REF':'T','R.ALT':'A'}
+        f.write(json.dumps(hbase_data)+"\n"+json.dumps(hbase_data))
+        f.close()
+        convert = formatConverters(input_file='hbase-temp.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
+        status = convert.convertFlatJsonToAvro(avscFile='myapps/variants/hbase-schema.avsc')
+        with open('tmp.avro', 'r') as content_file:
+            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data=content_file.read())
+        """ End test """
 
         # Now we import the data inside parquet
         with open(json_filename+'.tsv', 'r') as content_file:
