@@ -10,6 +10,9 @@ import shutil
 import vcf
 import os
 
+from beeswax.design import hql_query
+from beeswax.server import dbms
+from beeswax.server.dbms import get_query_server_config
 from subprocess import *
 import json
 
@@ -156,7 +159,14 @@ class formatConverters(object):
         status = "succeeded"
         return(status)
 
+    def convertHbaseToText(self, hbase_data):
+        # Convert data from an HBase json object (generated from a file with extension '.hbase') to a '.tsv' file
+        # we return a string to put inside a tsv in fact
+        pass
+
+
     def convertJsonToText(self, request):
+        # Obsolete
         # The json received should be created previously by 'convertPyvcfToJson' as we will want a json object/line
 
         # 1st: we take the json to text information
@@ -169,6 +179,7 @@ class formatConverters(object):
         # 2nd: we create the tsv file
         f = open(self.input_file, 'r')
         o = open(self.output_file, 'w')
+        specific_columns = []
 
         for json_line in f:
             variant = json.loads(json_line)
@@ -192,7 +203,7 @@ class formatConverters(object):
                 output_line[0] = variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + alternate
 
                 # We generate the line
-                o.write(','.join(output_line).replace('"','')+'\n')
+                o.write('='.join(output_line).replace('"','')+'\n')
 
         f.close()
         o.close()
@@ -410,7 +421,7 @@ class formatConverters(object):
             # The following terms should be correctly defined
            'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
            'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18,'type':'string'}, # Ok
-           'Call.sample':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
+           'Call.sample2':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
            'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20,'type':'int'},
            'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21,'type':'int'},
            'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
@@ -662,6 +673,67 @@ def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     os.remove(flatJSONFile)
     
     return(status)
+
+def database_create_variants(request, temporary=False, specific_columns=[]):
+    # Create the variant table. If temporary is True, it means we need to create a temporary structure as Text to be imported
+    # to another variants table (that won't be temporary). specific_columns eventually contain
+    # the name of sample columns, like I.CALL_NA0787, we will verify if they are available, if not
+    # we will alter the table
+
+    result = {'value':True,'text':'Everything is alright'}
+    # We install the tables for impala, based on the configuration
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json',output_type='json')
+    fields = fc.getMappingPyvcfToText()
+    pyvcf_fields = fc.getMappingPyvcfToJson()
+    hbase_fields = fc.getMappingJsonToHBase()
+    inversed_fields = {}
+    max_value = 0
+    for field in fields:
+        if fields[field] > max_value:
+            max_value = fields[field]
+        future_field = hbase_fields[pyvcf_fields[field]].split('.')
+        inversed_fields[fields[field]] = future_field.pop()
+
+    # We add the specific fields for each variant
+    for specific_column in specific_columns:
+        max_value += 1
+        inversed_fields[max_value] = specific_column
+
+    tmpf = open('superhello.txt','a')
+    tmpf.write('CONVERTERS > > > '+str(inversed_fields))
+    tmpf.close()
+    variants_table = ["" for i in xrange(max_value+1)]
+    for i in range(1, max_value + 1): # TODO: for now we simply choose the STRING type for every field
+        variants_table[i] = inversed_fields[i].replace('.','_')+" STRING"
+        if i < max_value:
+            variants_table[i] += ","
+    variants_table[0] = "pk STRING, "
+
+    # Connexion to the db
+    query_server = get_query_server_config(name='impala')
+    db = dbms.get(request.user, query_server=query_server)
+
+    # Deleting the old table and creating the new one
+    if temporary is True:
+        handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants_tmp_"+request.user.username+";"), timeout_sec=30.0)
+        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") row format delimited fields terminated by '=' stored as textfile;")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+    else:
+        handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants;"), timeout_sec=30.0)
+        query = hql_query("CREATE TABLE variants("+"".join(variants_table)+") stored as parquet;")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+    # We install the variant table for HBase
+    if temporary is False:
+        try:
+            hbaseApi = HbaseApi(user=request.user)
+            currentCluster = hbaseApi.getClusters().pop()
+            hbaseApi.createTable(cluster=currentCluster['name'],tableName='variants',columns=[{'properties':{'name':'I'}},{'properties':{'name':'R'}},{'properties':{'name':'F'}}])
+        except:
+            result['value'] = False
+            result['text'] = 'A problem occured when connecting to HBase and creating a table. Check if HBase is activated. Note that this message will also appear if the \'variants\' table in HBase already exists. In that case you need to manually delete it.'
+
+    return result, variants_table
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     import random

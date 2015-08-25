@@ -94,8 +94,7 @@ class VCFSerializer(serializers.Serializer):
         currentCluster = hbaseApi.getClusters().pop()
 
         # Now we analyze each sample information
-        tsv_path = '/user/cgs/cgs_'+request.user.username+'_vcf_import.tsv'
-        request.fs.create(tsv_path, overwrite=True, data='')
+        tsv_content = ''
         for raw_line in raw_lines:
             answers = raw_line.split(",")
 
@@ -163,8 +162,9 @@ class VCFSerializer(serializers.Serializer):
             pn_id = str(current_sample['pn_id'])
 
             # We create the tsv content
-            tsv_content = sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
-            request.fs.append(tsv_path, data=tsv_content)
+            tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
+        tsv_path = '/user/cgs/cgs_'+request.user.username+'_vcf_import.tsv'
+        request.fs.create(tsv_path, overwrite=True, data=tsv_content)
 
         # We insert the data
         query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_vcf_import.tsv' into table clinical_sample;")
@@ -174,6 +174,8 @@ class VCFSerializer(serializers.Serializer):
         buffer = 1024*1024
         tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
         f = open(tmp_filename,mode='w')
+        if length < 1024*1024*512:
+            buffer = length
         for offset in xrange(0, length, buffer):
             tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=offset, length=buffer, bufsize=buffer)
             f.write(tmp_vcf)
@@ -185,24 +187,37 @@ class VCFSerializer(serializers.Serializer):
         status = convert.convertVCF2FLATJSON()
 
         # We put the output on hdfs
-        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
         with open(json_filename, 'r') as content_file:
-            for line in content_file:
-                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=line)
+            if length < 1024*1024*512: # We use the length of the original vcf file, it doesn't really matter
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data=content_file.read())
+            else:
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
+                for line in content_file:
+                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=line)
 
-        # We convert the json to text
-        convert = formatConverters(input_file=json_filename,output_file=json_filename+'.tsv',input_type='json',output_type='text')
-        status = convert.convertJsonToText(request)
+        # We need to get the current columns in the parquet table
+        query = hql_query("show column stats variants")
+        handle = db.execute_and_wait(query, timeout_sec=30.0)
+        data = db.fetch(handle, rows=100000)
+        rows = list(data.rows())
+        known_columns = []
+        specific_columns = []
+        tmpf = open('superhello.txt','w')
+        tmpf.write(str(rows))
+        for row in rows:
+            known_columns.append(row[0])
 
-         # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
+        # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
         convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
         status = convert.convertJsonToHBase(request, analysis=current_analysis, organization=current_organization)
-        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
         with open(json_filename+'.hbase', 'r') as content_file:
-            for line in content_file:
-                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
+            if length < 1024*1024*512:
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data=content_file.read())
+            else:
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
+                for line in content_file:
+                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
 
-        tmpf = open('superhello.txt','w')
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:
                 try:
@@ -211,10 +226,16 @@ class VCFSerializer(serializers.Serializer):
                     rowkey = hbase_data['rowkey']
                     del hbase_data['rowkey']
 
+                    # We check the columns of the current object
+                    for column_name in hbase_data:
+                        true_column_name = strtolower(str(column_name.replace(':','_')).split(' ').pop(0))
+                        if true_column_name not in known_columns and true_column_name not in specific_columns:
+                            specific_columns.append(true_column_name)
+
                     # We check the data already in the database, maybe we have already a corresponding variant
                     try:
                         old_variant = VariantSerializer(request=request, pk=rowkey)
-                        tmpf.write('Found :'+str(old_variant.initial_data['names'])+'\n')
+                        #tmpf.write('Found :'+str(old_variant.initial_data['names'])+'\n')
                         names = [hbase_data['R:NAMES']]
                         for old_name in old_variant.initial_data['names']:
                             if old_name not in names:
@@ -231,27 +252,38 @@ class VCFSerializer(serializers.Serializer):
                 except Exception as e:
                     fprint("Error while reading the HBase json file")
                     tmpf.write('Error ('+str(e.message)+'):/.')
+        tmpf.write("SERIALIZERS > "+str(specific_columns))
         tmpf.close()
-        """ TODO: activate again the impala part when everything is working with hbase first
-        # TODO: do not load anymore the entire file in RAM in one-shot
-        with open(json_filename+'.tsv', 'r') as content_file:
-            tsv_content = content_file.read()
-            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.tsv', overwrite=True, data=tsv_content)
 
+        # Now we import the data inside parquet
+        with open(json_filename+'.tsv', 'r') as content_file:
+            if length < 1024*1024*512:
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.tsv', overwrite=True, data=content_file.read())
+            else:
+                for line in content_file:
+                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.tsv', data=line)
 
         # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
-        database_create_variants(request, temporary=True)
+        """
+        result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
+
+        variants_columns = []
+        for variants_column in variants_table:
+            variants_columns.append(str(variants_column).split(' ').pop(0))
 
         query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_"+json_filename+".tsv' into table variants_tmp_"+request.user.username+";")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
-        query = hql_query("insert into table variants select * from variants_tmp_"+request.user.username+";")
+        if len(specific_columns) > 0:
+            query = hql_query("alter table variants add columns ("+' STRING, '.join(specific_columns)+" STRING)")
+            handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+        query = hql_query("insert into table variants ("+','.join(variants_columns)+") select "+','.join(variants_columns)+" from variants_tmp_"+request.user.username+";")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         query = hql_query("drop table variants_tmp_"+request.user.username+";")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
         """
-
         # We delete the temporary file previously created on this node
         os.remove(tmp_filename)
         os.remove(json_filename)

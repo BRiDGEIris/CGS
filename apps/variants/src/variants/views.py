@@ -142,65 +142,6 @@ def sample_insert(request, current_analysis='0', current_organization='ulb'):
 ###############################
 
 
-
-
-
-
-
-
-
-
-
-def database_create_variants(request, temporary=False):
-    # Create the variant table. If temporary is True, it means we need to create a temporary structure as Text to be imported
-    # to another variants table (that won't be temporary)
-    result = {'value':True,'text':'Everything is alright'}
-    # We install the tables for impala
-    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json',output_type='json')
-    fields = fc.getMappingPyvcfToText()
-    pyvcf_fields = fc.getMappingPyvcfToJson()
-    hbase_fields = fc.getMappingJsonToHBase()
-    inversed_fields = {}
-    max_value = 0
-    for field in fields:
-        if fields[field] > max_value:
-            max_value = fields[field]
-        future_field = hbase_fields[pyvcf_fields[field]].split('.')
-        inversed_fields[fields[field]] = future_field.pop()
-
-    variants_table = ["" for i in xrange(max_value+1)]
-    for i in range(1, max_value + 1): # TODO: for now we simply choose the STRING type for every field
-        variants_table[i] = inversed_fields[i]+" STRING"
-        if i < max_value:
-            variants_table[i] += ","
-    variants_table[0] = "pk STRING, "
-
-    # Connexion to the db
-    query_server = get_query_server_config(name='impala')
-    db = dbms.get(request.user, query_server=query_server)
-
-    # Deleting the old table and creating the new one
-    if temporary is True:
-        handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants_tmp_"+request.user.username+";"), timeout_sec=30.0)
-        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") row format delimited fields terminated by ',' stored as textfile;")
-        handle = db.execute_and_wait(query, timeout_sec=30.0)
-    else:
-        handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants;"), timeout_sec=30.0)
-        query = hql_query("CREATE TABLE variants("+"".join(variants_table)+") stored as parquet;")
-        handle = db.execute_and_wait(query, timeout_sec=30.0)
-
-    # We install the variant table for HBase
-    try:
-        hbaseApi = HbaseApi(user=request.user)
-        currentCluster = hbaseApi.getClusters().pop()
-        hbaseApi.createTable(cluster=currentCluster['name'],tableName='variants',columns=[{'properties':{'name':'I'}},{'properties':{'name':'R'}},{'properties':{'name':'F'}}])
-    except:
-        result['value'] = False
-        result['text'] = 'A problem occured when connecting to HBase and creating a table. Check if HBase is activated. Note that this message will also appear if the \'variants\' table in HBase already exists. In that case you need to manually delete it.'
-
-
-    return result
-
 def database_initialize(request):
     """ Install the tables for this application """
 
