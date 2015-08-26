@@ -203,6 +203,8 @@ class formatConverters(object):
                 columns_lookup[field['name']] = 'NONE'
 
         status = "failed"
+
+        tmpf = open('superhello.txt','w')
         if avscFile == "":
             msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
             raise ValueError(msg)
@@ -216,14 +218,6 @@ class formatConverters(object):
                     break
                 ls = line.strip()
 
-                if add_default is True:
-                    # We need to add ourselves the default values for each call even if the avsc file does contain a 'default' parameter :/.
-                    data = json.loads(ls)
-                    for field_name in columns_lookup:
-                        if field_name not in data:
-                            data[field_name] = columns_lookup[field_name]
-                    ls = json.dumps(data)
-
                 if modify is True:
                     # We need to replace the ';' in the file to an '_'
                     data = json.loads(ls)
@@ -232,11 +226,21 @@ class formatConverters(object):
                         modified_data[key.replace(':','_')] = data[key]
                     ls = json.dumps(modified_data)
 
+                if add_default is True:
+                    # We need to add ourselves the default values for each call even if the avsc file does contain a 'default' parameter :/.
+                    data = json.loads(ls)
+                    for field_name in columns_lookup:
+                        if field_name not in data:
+                            tmpf.write('Not in data: '+field_name+' ('+str(data.keys())+')\n')
+                            data[field_name] = columns_lookup[field_name]
+                    ls = json.dumps(data)
+
                 writer.append(ast.literal_eval(ls))
 
             h.close()
             writer.close()
             status = "succeeded"
+        tmpf.close()
         return(status)
 
         ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file
@@ -786,7 +790,8 @@ def database_create_variants(request, temporary=False, specific_columns=[]):
         if fields[field] > max_value:
             max_value = fields[field]
         future_field = hbase_fields[pyvcf_fields[field]].split('.')
-        inversed_fields[fields[field]] = future_field.pop()
+        inversed_fields[fields[field]] = hbase_fields[pyvcf_fields[field]]
+        #inversed_fields[fields[field]] = future_field.pop()
 
     # We add the specific fields for each variant
     for specific_column in specific_columns:
@@ -803,16 +808,24 @@ def database_create_variants(request, temporary=False, specific_columns=[]):
             variants_table[i] += ","
     variants_table[0] = "pk STRING, "
 
-    # Connexion to the db
-    query_server = get_query_server_config(name='impala')
-    db = dbms.get(request.user, query_server=query_server)
-
     # Deleting the old table and creating the new one
     if temporary is True:
+        query_server = get_query_server_config(name='hive')
+        db = dbms.get(request.user, query_server=query_server)
+
+        avro_schema = {"name": "variants","type": "record","fields": []}
+        for field in variants_table:
+            tmp = field.split(' ')
+            avro_schema['fields'].append({'name':tmp[0],'type':'string','default':'NA'})
+        request.fs.create('/user/cgs/cgs_variants_'+request.user.username+'.json', overwrite=True, data=json.dumps(avro_schema))
+
         handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants_tmp_"+request.user.username+";"), timeout_sec=30.0)
-        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") row format delimited fields terminated by '=' stored as textfile;")
+        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") stored as avro TBLPROPERTIES ('avro.schema.url'='hdfs://localhost:8020/user/cgs/cgs_variants_"+request.user.username+".json');")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
     else:
+        query_server = get_query_server_config(name='impala')
+        db = dbms.get(request.user, query_server=query_server)
+
         handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants;"), timeout_sec=30.0)
         query = hql_query("CREATE TABLE variants("+"".join(variants_table)+") stored as parquet;")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
