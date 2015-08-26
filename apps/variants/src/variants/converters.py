@@ -627,34 +627,6 @@ def dbmapToJson(data, database="impala"):
 
     return mapped
 
-def hbaseVariantCallToJson(raw_call):
-    # Map a given call from HBase to a json object
-    mapped = {}
-
-    raw_info = raw_call.split('info{}')
-    if len(raw_info) > 1:
-        subinfo = raw_info[1].split('|')
-        for i in xrange(0, len(subinfo), 2):
-            subsubinfo = subinfo[i+1].split(';')
-            if len(subsubinfo) > 1 or '[]' in subinfo[i]:
-                mapped['variants.calls[].info{}.'+subinfo[i]] = subsubinfo
-            else:
-                mapped['variants.calls[].info{}.'+subinfo[i]] = subinfo[i+1]
-
-    info = raw_info[0].split('|')
-    for i in xrange(0, len(info), 2):
-        if i+1 < len(info):
-            subinfo = info[i+1].split(';')
-            if len(subinfo) > 1 or '[]' in info[i]:
-                if len(subinfo) == 1 and subinfo[0] == "":
-                    mapped['variants.calls[].'+info[i]] = []
-                else:
-                    mapped['variants.calls[].'+info[i]] = subinfo
-            else:
-                mapped['variants.calls[].'+info[i]] = info[i+1]
-
-    return mapped
-
 def hbaseToJson(data):
     # Map the data received from ONE entry (result.columns) of hbase with multiple columns to a JSON object
 

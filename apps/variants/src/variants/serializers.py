@@ -527,8 +527,12 @@ class VariantCallSerializer(serializers.Serializer):
         # We load the data based on the information we receive from the database.
 
         d = {}
-        # We load the data inside a 'data' dict, based on the current field above
-        json_data = hbaseVariantCallToJson(variantcall_data)
+        # We already have the structure json data inside variantcall_data, we just need to modify
+        # them a little bit
+        json_data = {}
+        for field in variantcall_data:
+            json_data['variants.calls[].'+field] = variantcall_data[field]
+
         d = jsonToSerializerData(json_data, self.fields, 'variants.calls[]')
 
         # Now we can call the classical constructor
@@ -574,9 +578,9 @@ class VariantSerializer(serializers.Serializer):
             d = jsonToSerializerData(json_data, self.fields, 'variants')
 
             d['calls'] = []
-            #for variants_call in json_data['variants.calls[]']:
-            #    call = VariantCallSerializer(variantcall_data=variants_call)
-            #    d['calls'].append(call.data)
+            for variants_call in json_data['variants.calls[]']:
+                call = VariantCallSerializer(variantcall_data=variants_call)
+                d['calls'].append(call.data)
 
             # Load a specific variant
             kwargs['data'] = d

@@ -4,7 +4,6 @@
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/urls.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/urls.py" />
     </list>
     <ignored path="cgs-apps.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -67,8 +66,8 @@
           <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.5790173" vertical-offset="8234" max-vertical-offset="11400">
-                  <caret line="578" column="13" selection-start-line="578" selection-start-column="13" selection-end-line="578" selection-end-column="13" />
+                <state vertical-scroll-proportion="-0.49667996" vertical-offset="8324" max-vertical-offset="11460">
+                  <caret line="530" column="27" selection-start-line="530" selection-start-column="27" selection-end-line="530" selection-end-column="27" />
                   <folding>
                     <element signature="e#0#38#0" expanded="true" />
                   </folding>
@@ -91,11 +90,11 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-8.964286" vertical-offset="1894" max-vertical-offset="13260">
+                <state vertical-scroll-proportion="-8.964286" vertical-offset="1894" max-vertical-offset="12840">
                   <caret line="143" column="70" selection-start-line="143" selection-start-column="67" selection-end-line="143" selection-end-column="70" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
-                    <marker date="1440617079593" expanded="true" signature="1812:7947" placeholder="..." />
+                    <marker date="1440617416083" expanded="true" signature="1812:7947" placeholder="..." />
                   </folding>
                 </state>
               </provider>
@@ -130,8 +129,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.4926959" vertical-offset="9184" max-vertical-offset="13260">
-                  <caret line="637" column="17" selection-start-line="637" selection-start-column="17" selection-end-line="637" selection-end-column="17" />
+                <state vertical-scroll-proportion="0.35325366" vertical-offset="9934" max-vertical-offset="12840">
+                  <caret line="680" column="26" selection-start-line="680" selection-start-column="26" selection-end-line="680" selection-end-column="26" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -627,7 +626,7 @@
           <caret line="395" column="39" selection-start-line="395" selection-start-column="39" selection-end-line="395" selection-end-column="39" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
-            <marker date="1440617079593" expanded="true" signature="1812:7947" placeholder="..." />
+            <marker date="1440617416083" expanded="true" signature="1812:7947" placeholder="..." />
           </folding>
         </state>
       </provider>
@@ -721,7 +720,7 @@
           <caret line="12" column="31" selection-start-line="12" selection-start-column="31" selection-end-line="12" selection-end-column="31" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
-            <marker date="1440617079593" expanded="true" signature="1812:7947" placeholder="..." />
+            <marker date="1440617416083" expanded="true" signature="1812:7947" placeholder="..." />
           </folding>
         </state>
       </provider>
@@ -952,15 +951,15 @@
           <caret line="143" column="70" selection-start-line="143" selection-start-column="67" selection-end-line="143" selection-end-column="70" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
-            <marker date="1440617079593" expanded="true" signature="1812:7947" placeholder="..." />
+            <marker date="1440617416083" expanded="true" signature="1812:7947" placeholder="..." />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.5790173" vertical-offset="8234" max-vertical-offset="11400">
-          <caret line="578" column="13" selection-start-line="578" selection-start-column="13" selection-end-line="578" selection-end-column="13" />
+        <state vertical-scroll-proportion="-0.49667996" vertical-offset="8324" max-vertical-offset="11460">
+          <caret line="530" column="27" selection-start-line="530" selection-start-column="27" selection-end-line="530" selection-end-column="27" />
           <folding>
             <element signature="e#0#38#0" expanded="true" />
           </folding>
