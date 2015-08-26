@@ -350,7 +350,7 @@ class VCFSerializer(serializers.Serializer):
                 except Exception as e:
                     fprint("Error while reading the HBase json file")
                     tmpf.write('Error ('+str(e.message)+'):/.')
-        
+
         tmpf.close()
 
 
@@ -525,7 +525,7 @@ class VariantCallSerializer(serializers.Serializer):
 
     def __init__(self, variantcall_data, *args, **kwargs):
         # We load the data based on the information we receive from the database.
-        # TODO: dynamic loading (to not have to rewrite the fields one-by-one)
+
         d = {}
         # We load the data inside a 'data' dict, based on the current field above
         json_data = hbaseVariantCallToJson(variantcall_data)
@@ -574,9 +574,9 @@ class VariantSerializer(serializers.Serializer):
             d = jsonToSerializerData(json_data, self.fields, 'variants')
 
             d['calls'] = []
-            for variants_call in json_data['variants.calls[]']:
-                call = VariantCallSerializer(variantcall_data=variants_call.value)
-                d['calls'].append(call.data)
+            #for variants_call in json_data['variants.calls[]']:
+            #    call = VariantCallSerializer(variantcall_data=variants_call)
+            #    d['calls'].append(call.data)
 
             # Load a specific variant
             kwargs['data'] = d
@@ -587,6 +587,7 @@ class VariantSerializer(serializers.Serializer):
 
     def post(self, request):
         # Insert a new variant inside the database (Impala - HBase)
+        # TODO: this method is OBSOLETE and will not work
         # TODO: it would be great to move the ';'.join() and json.dumps() to converters.py
 
         # Impala - We create the query to put the data

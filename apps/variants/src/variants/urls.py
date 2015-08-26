@@ -43,8 +43,8 @@ urlpatterns = patterns('variants',
     url(r'^api/variantsets/(?P<pk>[a-zA-Z0-9_-]{1,30})/$', api.VariantSetDetail.as_view(),name='variantset-detail'),
     url(r'^api/variantsets/$', api.VariantSetDetail.as_view(),name='variantset-detail'),
 
-    url(r'^api/variants/(?P<pk>[a-zA-Z0-9_-]{1,50})/(?P<action>[a-zA-Z]{1,30})/$', api.VariantDetail.as_view(),name='variant-detail'),
-    url(r'^api/variants/(?P<pk>[a-zA-Z0-9_-]{1,50})/$', api.VariantDetail.as_view(),name='variant-detail'),
+    url(r'^api/variants/(?P<pk>[a-zA-Z0-9_|-]{1,50})/(?P<action>[a-zA-Z]{1,30})/$', api.VariantDetail.as_view(),name='variant-detail'),
+    url(r'^api/variants/(?P<pk>[a-zA-Z0-9_|-]{1,50})/$', api.VariantDetail.as_view(),name='variant-detail'),
     url(r'^api/variants/$', api.VariantDetail.as_view(),name='variant-detail'),
 
     url(r'^api/callsets/(?P<pk>[a-zA-Z0-9-]{1,30})/$', api.CallSetDetail.as_view(),name='callset-detail'),

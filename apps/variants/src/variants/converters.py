@@ -700,7 +700,7 @@ def hbaseToJson(data):
     for hbase_field in data:
         if not hbase_field.startswith('I:CALL_'):
             continue
-        mapped['variants.calls[]'].append(data[hbase_field])
+        mapped['variants.calls[]'].append(json.loads(data[hbase_field].value))
 
     return mapped
 
