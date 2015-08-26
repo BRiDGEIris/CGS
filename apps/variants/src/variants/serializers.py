@@ -258,7 +258,6 @@ class VCFSerializer(serializers.Serializer):
         with open('tmp.avro', 'r') as content_file:
             request.fs.create('/user/cgs/cgs_twitter.avro', overwrite=True, data=content_file.read())
         "" End test """
-
         """
         # We need to get the current columns in the parquet table
         query = hql_query("show column stats variants")
@@ -267,22 +266,12 @@ class VCFSerializer(serializers.Serializer):
         rows = list(data.rows())
         known_columns = []
         specific_columns = []
-        tmpf = open('superhello.txt','w')
-        tmpf.write(str(rows))
         for row in rows:
             known_columns.append(row[0])
+        """
 
-        # We put the data in HBase. For now we do it simply, we should use the VCFSerializer to do it and bulk upload (TODO)
-        convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='json',output_type='text')
-        status = convert.convertJsonToHBase(request, analysis=current_analysis, organization=current_organization)
-        with open(json_filename+'.hbase', 'r') as content_file:
-            if length < 1024*1024*512:
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data=content_file.read())
-            else:
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
-                for line in content_file:
-                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
-
+        tmpf = open('superhello.txt','w')
+        # We put the data in HBase. For now we do it simply, but we should use the bulk upload (TODO)
         with open(json_filename+'.hbase', 'r') as content_file:
             for line in content_file:
                 try:
@@ -291,13 +280,8 @@ class VCFSerializer(serializers.Serializer):
                     rowkey = hbase_data['rowkey']
                     del hbase_data['rowkey']
 
-                    # We check the columns of the current object
-                    for column_name in hbase_data:
-                        true_column_name = strtolower(str(column_name.replace(':','_')).split(' ').pop(0))
-                        if true_column_name not in known_columns and true_column_name not in specific_columns:
-                            specific_columns.append(true_column_name)
-
                     # We check the data already in the database, maybe we have already a corresponding variant
+                    """
                     try:
                         old_variant = VariantSerializer(request=request, pk=rowkey)
                         #tmpf.write('Found :'+str(old_variant.initial_data['names'])+'\n')
@@ -309,17 +293,15 @@ class VCFSerializer(serializers.Serializer):
 
                         hbaseApi.deleteColumn(cluster=currentCluster['name'], tableName='variants', row=rowkey, column='R:NAMES')
                     except Exception as e:
-                        tmpf.write('Error ('+str(e.message)+'):/.')
+                        tmpf.write('Error while checking the list of names ('+str(e.message)+'):/.')
                         pass
-
+                    """
                     # We can save the new variant
                     hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
                 except Exception as e:
                     fprint("Error while reading the HBase json file")
                     tmpf.write('Error ('+str(e.message)+'):/.')
-        tmpf.write("SERIALIZERS > "+str(specific_columns))
         tmpf.close()
-        """
 
 
         """
