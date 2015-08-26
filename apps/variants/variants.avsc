@@ -3,31 +3,24 @@
   "name" : "variants",
   "namespace" : "com.cgs",
   "fields" : [ 
-	{
-	    	"name" : "pk",
-    		"type" : "string",
-    		"doc"  : "Rowkey for the current variant",
-		"default" : "NA"
-  	}, {
-    		"name" : "R.C",
-    		"type" : "string",
-    		"doc"  : "Reference name",
-		"default" : "NA"
-  	}, {
-   		"name" : "R.P",
-    		"type" : "string",
-    		"doc"  : "Starting position of a variant",
-		"default" : "NA"
-  	}, {
-    		"name" : "R.REF",
-    		"type" : "string",
-    		"doc"  : "Reference",
-		"default" : "NA"
-  	}, {
-    		"name" : "R.ALT",
-    		"type" : "string",
-    		"doc"  : "Alternate",
-		"default" : "NA"
-  	} ],
-  "doc:" : "A basic schema for storing Twitter messages"
+	{"name" : "I_MQ0","type" : "string","default" : "NA"},
+	{"name" : "R_QUAL","type" : "string","default" : "NA"},
+	{"name" : "R_ID","type" : "string","default" : "NA"},
+	{"name" : "rowkey","type" : "string","default" : "NA"},
+	{"name" : "I_DBSNP137","type" : "string","default" : "NA"},
+	{"name" : "R_ALT","type" : "string","default" : "NA"},
+	{"name" : "I_DS","type" : "string","default" : "NA"},
+	{"name" : "R_NAMES","type" : "string","default" : "NA"},
+	{"name" : "I_QD","type" : "string","default" : "NA"},
+	{"name" : "I_HR","type" : "string","default" : "NA"},
+	{"name" : "I_SB","type" : "string","default" : "NA"},
+	{"name" : "R_INFO","type" : "string","default" : "NA"},
+	{"name" : "R_CREATED","type" : "string","default" : "NA"},
+	{"name" : "R_P","type" : "string","default" : "NA"},
+	{"name" : "R_FILTER","type" : "string","default" : "NA"},
+	{"name" : "R_SI","type" : "string","default" : "NA"},
+	{"name" : "R_REF","type" : "string","default" : "NA"},
+	{"name" : "R_C","type" : "string","default" : "NA"}
+  	],
+  "doc:" : "A basic schema for storing variants"
 }

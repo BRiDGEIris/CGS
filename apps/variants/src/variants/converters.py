@@ -60,8 +60,9 @@ class formatConverters(object):
         Converting method""" % (self.input_type, self.output_type, self.converting_method))
 
     def convertVcfToFlatJson(self, organization="ulb", analysis="0"):
-        """ Convert a vcf file to a flat json file
-        Check the doc: https://pyvcf.readthedocs.org/en/latest/API.html#vcf-model-call
+        """
+            Convert a vcf file to a flat json file
+            Check the doc: https://pyvcf.readthedocs.org/en/latest/API.html#vcf-model-call
         """
         if self.input_type not in ['vcf','vcf.gz'] or self.output_type != 'jsonflat':
             msg = "Error: vcf files (possibly gzipped) must be given as input files, and a jsonflat file should be given as output file."
@@ -70,9 +71,13 @@ class formatConverters(object):
 
         mapping = self.getMappingPyvcfToJson()
 
+
         f = open(self.input_file, 'r')
         o = open(self.output_file, 'w')
 
+        list_of_rowkeys = []
+        list_of_columns = []
+        list_of_samples = []
         vcf_reader = vcf.Reader(f)
         for record in vcf_reader:
             linedic = {}
@@ -152,11 +157,18 @@ class formatConverters(object):
                 # We have to add the sample id for the current sample
                 linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
 
+                if linedic['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
+                    list_of_samples.append(linedic['variants.calls[]']['info{}']['sampleId'])
+
                 # Before writing the data to the json flat, we need to format them according to the avsc file
                 # and the current sample id
                 rowkey = organization + '|' + analysis + '|' + linedic['variants.referenceName'] + '|' + linedic['variants.start'] + '|' + linedic['variants.referenceBases'] + '|' + linedic['variants.alternateBases[]'][0]
+                linedic['variants.id'] = rowkey
                 linedic['variants.calls[].'+rowkey] = json.dumps(linedic['variants.calls[]'])
                 del linedic['variants.calls[]']
+                if rowkey not in list_of_rowkeys:
+                    list_of_rowkeys.append(rowkey)
+
 
                 # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
                 for jsonkey in linedic:
@@ -166,12 +178,108 @@ class formatConverters(object):
                     elif type(linedic[jsonkey]) is dict:
                         linedic[jsonkey] = json.dumps(linedic[jsonkey])
 
+                    if jsonkey not in list_of_columns:
+                        list_of_columns.append(jsonkey)
+
                 o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
         o.close()
         f.close()
 
         status = "succeeded"
+        return status, list_of_columns, list_of_samples, list_of_rowkeys
+
+    def convertHbaseToAvro(self,avscFile = "", add_default=True, modify=True):
+        """
+            Convert an hbase json file to an avro file using AVSC for making the conversion
+        """
+
+        with open(avscFile,'r') as content_file:
+            avro_schema = json.loads(content_file.read())
+        columns_lookup = {}
+        for field in avro_schema['fields']:
+            if 'default' in field:
+                columns_lookup[field['name']] = field['default']
+            else:
+                columns_lookup[field['name']] = 'NONE'
+
+        status = "failed"
+        if avscFile == "":
+            msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
+            raise ValueError(msg)
+        else:
+            schema = avro.schema.parse(open(avscFile).read())
+            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
+            h = open(self.input_file)
+            while 1: ## reading line per line in the flat json file and write them in the AVRO format
+                line = h.readline()
+                if not line:
+                    break
+                ls = line.strip()
+
+                if add_default is True:
+                    # We need to add ourselves the default values for each call even if the avsc file does contain a 'default' parameter :/.
+                    data = json.loads(ls)
+                    for field_name in columns_lookup:
+                        if field_name not in data:
+                            data[field_name] = columns_lookup[field_name]
+                    ls = json.dumps(data)
+
+                if modify is True:
+                    # We need to replace the ';' in the file to an '_'
+                    data = json.loads(ls)
+                    modified_data = {}
+                    for key in data:
+                        modified_data[key.replace(':','_')] = data[key]
+                    ls = json.dumps(modified_data)
+
+                writer.append(ast.literal_eval(ls))
+
+            h.close()
+            writer.close()
+            status = "succeeded"
         return(status)
+
+        ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file
+
+    def convertFlatJsonToHbase(self):
+        """
+            Convert a flat json file to an hbase json file. It's mostly a key mapping so nothing big
+        """
+
+        # 1st: we take the json to hbase information
+        mapping = self.getMapping()
+
+        json_to_hbase = {}
+        for key in mapping:
+            json_to_hbase[mapping[key]['json']] = mapping[key]['hbase'].replace('.',':')
+
+        # 2nd: we create a temporary file in which we will save each future line for HBase
+        f = open(self.input_file, 'r')
+        o = open(self.output_file, 'w')
+
+        for json_line in f:
+            variant = json.loads(json_line)
+
+            output_line = {}
+            output_line['rowkey'] = variant['variants.id']
+            for attribute in variant:
+
+                if attribute.startswith('variants.calls[]'):
+                    # We generate the table name based on the 'sampleId' and the 'id' field (containing the information on the current analysis)
+                    call_info = json.loads(variant[attribute])
+                    hbase_key = 'I:CALL_'+call_info['info{}']['sampleId']
+                else:
+                    hbase_key = json_to_hbase[attribute]
+
+                output_line[hbase_key] = str(variant[attribute])
+
+            # We generate the line
+            o.write(json.dumps(output_line)+'\n')
+        f.close()
+        o.close()
+
+        status = "succeeded"
+        return status
 
     def convertHbaseToText(self, hbase_data):
         # Convert data from an HBase json object (generated from a file with extension '.hbase') to a '.tsv' file
@@ -338,31 +446,6 @@ class formatConverters(object):
         return(status)
         f.close()
         h.close()
-         
-    def convertFlatJsonToAvro(self,avscFile = ""):
-        """ Convert a flat json file (for the format, see the documentation) to an avro file using AVSC for making the conversion
-        """
-        status = "failed"
-        if avscFile == "":
-            msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
-            raise ValueError(msg)
-        else:
-            schema = avro.schema.parse(open(avscFile).read())
-            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
-            h = open(self.input_file)
-            while 1: ## reading line per line in the flat json file and write them in the AVRO format
-                line = h.readline()
-                if not line:
-                    break
-                ls = line.strip()
-                writer.append(ast.literal_eval(ls))
-
-            h.close()
-            writer.close()
-            status = "succeeded"
-        return(status)
-
-        ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file 
 
     def getMappingJsonToText(self):
         # Return the mapping 'json_parameter' > 'order_in_text_file'

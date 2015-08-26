@@ -9,7 +9,8 @@
   }, {
     "name" : "tweet",
     "type" : "string",
-    "doc"  : "The content of the user's Twitter message"
+    "doc"  : "The content of the user's Twitter message",
+    "default": "NA"
   }, {
     "name" : "timestamp",
     "type" : "long",

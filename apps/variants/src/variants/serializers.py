@@ -6,6 +6,7 @@ from beeswax.server.dbms import get_query_server_config
 from hbase.api import HbaseApi
 from converters import *
 from models import *
+import time
 import os
 import json
 
@@ -184,7 +185,7 @@ class VCFSerializer(serializers.Serializer):
         # Now we try to analyze the vcf a little bit more with the correct tool
         json_filename = tmp_filename+'.cgs.json'
         convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
-        status = convert.convertVcfToFlatJson()
+        status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson()
 
         # We put the output on hdfs
         with open(json_filename, 'r') as content_file:
@@ -195,7 +196,70 @@ class VCFSerializer(serializers.Serializer):
                 for line in content_file:
                     request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=line)
 
+        # We eventually modify the avsc file with the new calls
+        avro_schema = {}
+        with open('myapps/variants/variants.avsc','r') as content_file:
+            avro_schema = json.loads(content_file.read())
+            with open('variants.avsc','w') as f:
+                f.write(json.dumps(avro_schema))
 
+        existing_columns = []
+        for field in avro_schema['fields']:
+            existing_columns.append(field['name'])
+        modified_avro_schema = False
+        for sample_id in ids_of_samples:
+            destination_field = 'I_CALL_'+sample_id
+
+            if destination_field not in existing_columns:
+                # The current sample does not exist yet in the avsc file, we need to add it
+                call_schema = {"name":destination_field,"type":"string","doc":"Column for a specific sample","default":"NA"}
+                avro_schema['fields'].append(call_schema)
+                existing_columns.append(destination_field)
+                modified_avro_schema = True
+
+        if modified_avro_schema is True:
+            # We need to save the new schema, first we save the old version, then we modify the current one
+            with open('variants.avsc','r') as content_file:
+                with open('variants.'+str(time.time())+'.avsc', 'w') as archive_file:
+                    archive_file.write(content_file.read())
+
+            with open('variants.avsc','w') as content_file:
+                content_file.write(json.dumps(avro_schema))
+
+        # We convert the flat json to hbase (mostly a key mapping)
+        convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='jsonflat',output_type='hbase')
+        status = convert.convertFlatJsonToHbase()
+
+        # We put the hbase file on hdfs
+        with open(json_filename+'.hbase', 'r') as content_file:
+            if length < 1024*1024*512: # We use the length of the original vcf file, it doesn't really matter
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data=content_file.read())
+            else:
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
+                for line in content_file:
+                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
+
+        # We convert the hbase to avro file
+        convert = formatConverters(input_file=json_filename+'.hbase',output_file=json_filename+'.avro',input_type='jsonflat',output_type='avro')
+        status = convert.convertHbaseToAvro(avscFile='variants.avsc')
+
+        # We put the avro file on hdfs
+        with open(json_filename+'.avro', 'r') as content_file:
+            if length < 1024*1024*512: # We use the length of the original vcf file, it doesn't really matter
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data=content_file.read())
+            else:
+                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
+                for line in content_file:
+                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=line)
+
+        """ For test only ""
+        convert = formatConverters(input_file='myapps/variants/twitter-content.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
+        status = convert.convertHbaseToAvro(avscFile='myapps/variants/twitter.avsc',modify=False)
+        with open('tmp.avro', 'r') as content_file:
+            request.fs.create('/user/cgs/cgs_twitter.avro', overwrite=True, data=content_file.read())
+        "" End test """
+
+        """
         # We need to get the current columns in the parquet table
         query = hql_query("show column stats variants")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
@@ -255,18 +319,10 @@ class VCFSerializer(serializers.Serializer):
                     tmpf.write('Error ('+str(e.message)+'):/.')
         tmpf.write("SERIALIZERS > "+str(specific_columns))
         tmpf.close()
+        """
 
-        """ For test only """
-        f = open('hbase-temp.json','w')
-        hbase_data = {'R.C':'12','pk':'superrowkey','R.P':'265446','R.REF':'T','R.ALT':'A'}
-        f.write(json.dumps(hbase_data)+"\n"+json.dumps(hbase_data))
-        f.close()
-        convert = formatConverters(input_file='hbase-temp.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
-        status = convert.convertFlatJsonToAvro(avscFile='myapps/variants/hbase-schema.avsc')
-        with open('tmp.avro', 'r') as content_file:
-            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data=content_file.read())
-        """ End test """
 
+        """
         # Now we import the data inside parquet
         with open(json_filename+'.tsv', 'r') as content_file:
             if length < 1024*1024*512:
@@ -276,7 +332,6 @@ class VCFSerializer(serializers.Serializer):
                     request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.tsv', data=line)
 
         # We import the .tsv into impala into a temporary table just for the current user, then we put it into a parquet table, and delete the temporary table
-        """
         result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
 
         variants_columns = []
