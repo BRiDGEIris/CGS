@@ -328,6 +328,7 @@ class VCFSerializer(serializers.Serializer):
                     hbase_data = json.loads(line)
                     rowkey = hbase_data['rowkey']
                     del hbase_data['rowkey']
+                    del hbase_data['pk']
 
                     # We check the data already in the database, maybe we have already a corresponding variant
                     ""
@@ -591,6 +592,7 @@ class VariantSerializer(serializers.Serializer):
 
     def post(self, request):
         # Insert a new variant inside the database (Impala - HBase)
+
         # TODO: this method is OBSOLETE and will not work
         # TODO: it would be great to move the ';'.join() and json.dumps() to converters.py
 

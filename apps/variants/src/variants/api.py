@@ -218,8 +218,11 @@ class VariantDetail(APIView):
         #return Response(json.dumps({'status':-1,'error':'Variant id invalid or problem while loading the variant.'}))
         return Response(variant.data)
 
-    def post(self, request):
+    def post(self, request, data=""):
         # Create a new variant
+        if data == 'search':
+            return self.search(request)
+
         status = -1
 
         variant_form = VariantSerializer(data=request.data)
@@ -233,8 +236,88 @@ class VariantDetail(APIView):
         return Response(json.dumps({'status':status}))
 
     def search(self, request):
-        # Search for a specific variant
+        # Search for a specific variant. See https://cloud.google.com/genomics/v1beta2/reference/variants/search
         result = {'status':1,'text':'Everything is alright.'}
+
+        # data = request.data # For dev
+
+        """ For test only """
+        data = {
+          "variantSetIds": [],
+          "variantName": '',
+          "callSetIds": [],
+          "referenceName": 1,
+          "start": 0,
+          "end": 0,
+          "pageToken": 0,
+          "pageSize": 30,
+          "maxCalls": 30
+        }
+
+        """ End test """
+
+        # First we check the data and set default value like google genomics
+        if 'variantSetIds' not in data:
+            data['variantSetIds'] = []
+
+        if 'variantName' not in data:
+            data['variantName'] = ''
+
+        if 'callSetIds' not in data:
+            data['callSetIds'] = []
+
+        if 'referenceName' not in data:
+            result = {'status':-1,'text':'You need to set a value for the attribute "referenceName".'}
+            return Response(json.dumps(result))
+
+        if 'start' not in data:
+            data['start'] = 0
+
+        if 'end' not in data: # TODO
+            data['end'] = 0
+
+        if 'pageToken' not in data:
+            data['pageToken'] = 0
+
+        if 'pageSize' not in data:
+            data['pageSize'] = 5000
+
+        if 'maxCalls' not in data:
+            data['maxCalls'] = 5000
+
+        # We map the json keys to the column names of parquet
+
+
+        # We prepare the query
+        query = "SELECT * FROM variants WHERE r_c = '"+str(data['referenceName'])+"'"
+
+        # We execute the query on parquet
+        tmpf = open('superhello.txt','w')
+        query_server = get_query_server_config(name='impala')
+        db = dbms.get(request.user, query_server=query_server)
+        handle = db.execute_and_wait(hql_query(query), timeout_sec=360.0)
+        result_set = []
+        if handle:
+            raw_data = db.fetch(handle, rows=data['pageSize'])
+            columns = raw_data.cols()
+            for raw_variant in raw_data.rows():
+
+                # We map the column names and the list of data for the current row
+                mapped_variant = {}
+                for i in xrange(len(columns)):
+                    mapped_variant[columns[i]] = raw_variant[i]
+
+                # We generate the data for the variant
+                current_variant = VariantSerializer(request=request, pk=raw_variant[0], impala_data=mapped_variant)
+
+                # We store the variant
+                result_set.append(current_variant)
+                tmpf.write('Variant found: '+str(raw_variant)+' ('+str(columns)+')\n')
+            db.close(handle)
+        tmpf.close()
+
+        # We format the results and send them back
+
 
         # > Code below NEEDS REFACTORING
 
@@ -242,6 +325,8 @@ class VariantDetail(APIView):
 
         To test it type in your bash prompt:
         See the documentation
+
+        """
 
         """
         # ## check request
@@ -406,8 +491,8 @@ class VariantDetail(APIView):
         else:
             result['error'] = 'No result found.'
             return HttpResponse(json.dumps(result), mimetype="application/json")
-
-        return Response(result)
+        """
+        return Response(json.dumps(result))
 
 
 class CallSetDetail(APIView):

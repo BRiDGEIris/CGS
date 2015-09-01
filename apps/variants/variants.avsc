@@ -3,6 +3,7 @@
   "name" : "variants",
   "namespace" : "com.cgs",
   "fields" : [ 
+	{"name" : "pk","type" : "string","default" : "NA"},
 	{"name" : "I_MQ0","type" : "string","default" : "NA"},
 	{"name" : "R_QUAL","type" : "string","default" : "NA"},
 	{"name" : "R_ID","type" : "string","default" : "NA"},

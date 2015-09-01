@@ -265,6 +265,7 @@ class formatConverters(object):
             variant = json.loads(json_line)
 
             output_line = {}
+            output_line['pk'] = variant['variants.id']
             output_line['rowkey'] = variant['variants.id']
             for attribute in variant:
 
