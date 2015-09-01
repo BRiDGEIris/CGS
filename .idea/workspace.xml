@@ -77,8 +77,8 @@
           <file leaf-file-name="api.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.3559097" vertical-offset="3347" max-vertical-offset="8445">
-                  <caret line="241" column="38" selection-start-line="241" selection-start-column="38" selection-end-line="241" selection-end-column="38" />
+                <state vertical-scroll-proportion="0.7211155" vertical-offset="4932" max-vertical-offset="5805">
+                  <caret line="365" column="31" selection-start-line="365" selection-start-column="31" selection-end-line="365" selection-end-column="31" />
                   <folding>
                     <element signature="e#23#34#0" expanded="true" />
                   </folding>
@@ -957,8 +957,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.3559097" vertical-offset="3347" max-vertical-offset="8445">
-          <caret line="241" column="38" selection-start-line="241" selection-start-column="38" selection-end-line="241" selection-end-column="38" />
+        <state vertical-scroll-proportion="0.7211155" vertical-offset="4932" max-vertical-offset="5805">
+          <caret line="365" column="31" selection-start-line="365" selection-start-column="31" selection-end-line="365" selection-end-column="31" />
           <folding>
             <element signature="e#23#34#0" expanded="true" />
           </folding>
