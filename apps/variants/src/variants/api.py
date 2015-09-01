@@ -239,9 +239,9 @@ class VariantDetail(APIView):
         # Search for a specific variant. See https://cloud.google.com/genomics/v1beta2/reference/variants/search
         result = {'status':1,'text':'Everything is alright.'}
 
-        # data = request.data # For dev
+        data = request.data # For prod
 
-        """ For test only """
+        """ For test only ""
         data = {
           "variantSetIds": ['NA'],
           "variantName": '',
@@ -254,7 +254,7 @@ class VariantDetail(APIView):
           "maxCalls": 30
         }
 
-        """ End test """
+        "" End test """
 
         # First we check the data and set default value like google genomics
         if 'variantSetIds' not in data:
