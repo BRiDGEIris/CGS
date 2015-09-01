@@ -233,7 +233,7 @@ class VariantDetail(APIView):
             except:
                 status = 0
 
-        return Response(json.dumps({'status':status}))
+        return Response({'status':status})
 
     def search(self, request):
         # Search for a specific variant. See https://cloud.google.com/genomics/v1beta2/reference/variants/search
@@ -243,13 +243,13 @@ class VariantDetail(APIView):
 
         """ For test only """
         data = {
-          "variantSetIds": [],
+          "variantSetIds": ['NA'],
           "variantName": '',
           "callSetIds": [],
           "referenceName": 1,
           "start": 0,
           "end": 0,
-          "pageToken": 0,
+          "pageToken": '',
           "pageSize": 30,
           "maxCalls": 30
         }
@@ -268,12 +268,12 @@ class VariantDetail(APIView):
 
         if 'referenceName' not in data:
             result = {'status':-1,'text':'You need to set a value for the attribute "referenceName".'}
-            return Response(json.dumps(result))
+            return Response(result)
 
         if 'start' not in data:
             data['start'] = 0
 
-        if 'end' not in data: # TODO
+        if 'end' not in data:
             data['end'] = 0
 
         if 'pageToken' not in data:
@@ -285,11 +285,53 @@ class VariantDetail(APIView):
         if 'maxCalls' not in data:
             data['maxCalls'] = 5000
 
-        # We map the json keys to the column names of parquet
-        
+        if len(data['variantSetIds']) == 0 and len(data['callSetIds']) == 0:
+            result = {'status':-1,'text':'You need to set a value for the attribute "variantSetIds" or "callSetIds" at least.'}
+            return Response(result)
+
+        # We get the keys associated to the json we received
+        fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
+        mapping = fc.getMappingJsonToParquet()
+
+        tableNames = {
+            'variantSetIds': mapping['variants.variantSetId'],
+            'variantName': mapping['variants.names[]'],
+            'callSetIds': mapping['variants.calls[].callSetId'],
+            'referenceName': mapping['variants.referenceName'],
+            'start': mapping['variants.start'],
+            'end': mapping['variants.end'],
+            'pageToken': mapping['variants.id'], # Equivalent to rowkey
+        }
 
         # We prepare the query
-        query = "SELECT * FROM variants WHERE r_c = '"+str(data['referenceName'])+"'"
+        where = []
+
+        if len(data['variantSetIds']) > 0:# CF. google doc, "at most one variantSetIds must be provided"
+            where.append(tableNames['variantSetIds']+" = '"+data['variantSetIds'][0]+"'")
+
+        if len(data['variantName']) > 0:
+            where.append(tableNames['variantName']+" = '"+data['variantName']+"'")
+
+        if len(data['callSetIds']) > 0:
+            # TODO
+            pass
+
+        where.append(tableNames['referenceName']+" = '"+str(data['referenceName'])+"'")
+
+        if data['start'] > 0:
+            where.append(tableNames['start']+" >= "+str(data['start'])+"")
+
+        if data['end'] > 0:
+            # TODO: compute length of the reference like in google genomics
+            where.append(tableNames['end']+" < "+str(data['end'])+"")
+
+        if len(data['pageToken']) > 0:
+            where.append(tableNames['pageToken']+" >= '"+str(data['pageToken'])+"'")
+
+        tmpf = open('superhello.txt','w')
+        query = "SELECT * FROM variants WHERE "+" AND ".join(where)
+        tmpf.write(query)
+        tmpf.close()
 
         # We execute the query on parquet
         query_server = get_query_server_config(name='impala')
@@ -298,7 +340,7 @@ class VariantDetail(APIView):
         result_set = []
         last_pk = ''
         if handle:
-            raw_data = db.fetch(handle, rows=data['pageSize'])
+            raw_data = db.fetch(handle, rows=data['pageSize'] + 1) # + 1 as we want to know there are multiple pages
             columns = raw_data.cols()
             for raw_variant in raw_data.rows():
 
@@ -311,13 +353,15 @@ class VariantDetail(APIView):
                 current_variant = VariantSerializer(request=request, pk=raw_variant[0], impala_data=mapped_variant)
 
                 # We store the variant (only the data, not the object)
-                result_set.append(current_variant.data)
-                last_pk = current_variant.data['id']
+                if len(result_set) < data['pageSize']:
+                    result_set.append(current_variant.data)
+                else: # The last row  is used to check if there are still variants to list
+                    last_pk = current_variant.data['id']
             db.close(handle)
 
         # We format the results and send them back
         result['variants'] = result_set
-        result['nextPageToken'] = last_pk # Not perfect...
+        result['nextPageToken'] = last_pk
 
         return Response(result)
 

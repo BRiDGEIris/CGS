@@ -494,10 +494,20 @@ class formatConverters(object):
 
         return new_mapping
 
+    def getMappingJsonToParquet(self):
+        # Return the mapping Json to Parquet field (we don't want to have the order for parquet, just the column names)
+        mapping = self.getMapping()
+
+        new_mapping = {}
+        for key in mapping:
+            new_mapping[mapping[key]['json']] = str(mapping[key]['hbase'].replace('.','_')).lower()
+
+        return new_mapping
 
     def getMapping(self):
         # Return the mapping between PyVCF, JSON, HBase and Parquet (parquet position only)
         # Sometimes there is nothing in PyVCF to give information for a specific file created by ourselves.
+        # DO NOT change the 'json' fields...
 
         mapping = {
         'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1,'type':'string'},
