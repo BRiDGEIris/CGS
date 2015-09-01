@@ -16,12 +16,13 @@
 	{"name" : "I_HR","type" : "string","default" : "NA"},
 	{"name" : "I_SB","type" : "string","default" : "NA"},
 	{"name" : "R_INFO","type" : "string","default" : "NA"},
-	{"name" : "R_CREATED","type" : "string","default" : "NA"},
-	{"name" : "R_P","type" : "string","default" : "NA"},
+	{"name" : "R_CREATED","type" : "int","default" : 0},
+	{"name" : "R_P","type" : "int","default" : 0},
+	{"name" : "R_PEND","type" : "int","default" : 0},
 	{"name" : "R_FILTER","type" : "string","default" : "NA"},
 	{"name" : "R_SI","type" : "string","default" : "NA"},
 	{"name" : "R_REF","type" : "string","default" : "NA"},
 	{"name" : "R_C","type" : "string","default" : "NA"}
   	],
-  "doc:" : "A basic schema for storing variants"
+  "doc:" : "A schema to store variants"
 }

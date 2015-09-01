@@ -273,7 +273,7 @@ class VCFSerializer(serializers.Serializer):
         # O: We get the columns from the parquet table to detect missing columns for the new calls we just created
         query = hql_query("show column stats variants")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
-        data = db.fetch(handle, rows=100000)
+        data = db.fetch(handle, rows=1000000)
         rows = list(data.rows())
         columns_for_new_calls = []
         existing_calls_columns = []
@@ -288,10 +288,12 @@ class VCFSerializer(serializers.Serializer):
                 columns_for_new_calls.append(destination_field)
         tmpf.write("Existing calls: "+json.dumps(existing_calls_columns)+"\r\n")
         tmpf.write("New calls: "+json.dumps(columns_for_new_calls))
+        tmpf.close()
 
         # 1st: we create a temporary hive table with avro storage
         result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
 
+        tmpf = open('superhello.txt','a')
         # 2nd: we import the previously created avro file inside the temporary avro table
         query_server = get_query_server_config(name='hive')
         hive_db = dbms.get(request.user, query_server=query_server)

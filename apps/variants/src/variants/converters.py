@@ -204,7 +204,6 @@ class formatConverters(object):
 
         status = "failed"
 
-        tmpf = open('superhello.txt','w')
         if avscFile == "":
             msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
             raise ValueError(msg)
@@ -231,16 +230,15 @@ class formatConverters(object):
                     data = json.loads(ls)
                     for field_name in columns_lookup:
                         if field_name not in data:
-                            tmpf.write('Not in data: '+field_name+' ('+str(data.keys())+')\n')
                             data[field_name] = columns_lookup[field_name]
                     ls = json.dumps(data)
 
+                # We finally write the avro file
                 writer.append(ast.literal_eval(ls))
 
             h.close()
             writer.close()
             status = "succeeded"
-        tmpf.close()
         return(status)
 
         ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file
@@ -254,8 +252,10 @@ class formatConverters(object):
         mapping = self.getMapping()
 
         json_to_hbase = {}
+        types = {}
         for key in mapping:
             json_to_hbase[mapping[key]['json']] = mapping[key]['hbase'].replace('.',':')
+            types[mapping[key]['json']] = mapping[key]['type']
 
         # 2nd: we create a temporary file in which we will save each future line for HBase
         f = open(self.input_file, 'r')
@@ -276,7 +276,13 @@ class formatConverters(object):
                 else:
                     hbase_key = json_to_hbase[attribute]
 
-                output_line[hbase_key] = str(variant[attribute])
+                if attribute in types and types[attribute] == 'int':
+                    try:
+                        output_line[hbase_key] = int(variant[attribute])
+                    except:
+                        output_line[hbase_key] = 0
+                else:
+                    output_line[hbase_key] = str(variant[attribute])
 
             # We generate the line
             o.write(json.dumps(output_line)+'\n')
@@ -813,55 +819,81 @@ def convertJSONdir2AVROfile(jsonDir, avroFile, avscFile):
     
     return(status)
 
-def database_create_variants(request, temporary=False, specific_columns=[]):
+def database_create_variants(request, temporary=False, specific_columns=None):
     # Create the variant table. If temporary is True, it means we need to create a temporary structure as Text to be imported
     # to another variants table (that won't be temporary). specific_columns eventually contain
     # the name of sample columns, like I.CALL_NA0787, we will verify if they are available, if not
     # we will alter the table
+    if specific_columns is None:
+        specific_columns = []
 
     result = {'value':True,'text':'Everything is alright'}
+
     # We install the tables for impala, based on the configuration
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json',output_type='json')
+    mapping = fc.getMapping()
     fields = fc.getMappingPyvcfToText()
     pyvcf_fields = fc.getMappingPyvcfToJson()
     hbase_fields = fc.getMappingJsonToHBase()
     inversed_fields = {}
+    type_fields = {}
     max_value = 0
     for field in fields:
         if fields[field] > max_value:
             max_value = fields[field]
         future_field = hbase_fields[pyvcf_fields[field]].split('.')
-        inversed_fields[fields[field]] = hbase_fields[pyvcf_fields[field]]
         #inversed_fields[fields[field]] = future_field.pop()
+        inversed_fields[fields[field]] = hbase_fields[pyvcf_fields[field]]
+
+        try:
+            type = mapping[field]['type']
+        except:
+            type = 'string'
+
+        type_fields[fields[field]] = type
 
     # We add the specific fields for each variant
     for specific_column in specific_columns:
         max_value += 1
         inversed_fields[max_value] = specific_column
+        type_fields[max_value] = 'string'
 
-    tmpf = open('superhello.txt','a')
-    tmpf.write('CONVERTERS > > > '+str(inversed_fields))
-    tmpf.close()
     variants_table = ["" for i in xrange(max_value+1)]
-    for i in range(1, max_value + 1): # TODO: for now we simply choose the STRING type for every field
-        variants_table[i] = inversed_fields[i].replace('.','_')+" STRING"
+    for i in range(1, max_value + 1):
+        if type_fields[i] == 'int':
+            variants_table[i] = inversed_fields[i].replace('.','_')+" INT"
+        else:
+            variants_table[i] = inversed_fields[i].replace('.','_')+" STRING"
+
         if i < max_value:
             variants_table[i] += ","
     variants_table[0] = "pk STRING, "
 
     # Deleting the old table and creating the new one
     if temporary is True:
+        tmpf = open('superhello.txt','w')
+        tmpf.write(">>>>>>>>>>>> Call from temporary creation: ")
         query_server = get_query_server_config(name='hive')
         db = dbms.get(request.user, query_server=query_server)
 
         avro_schema = {"name": "variants","type": "record","fields": []}
         for field in variants_table:
             tmp = field.split(' ')
-            avro_schema['fields'].append({'name':tmp[0],'type':'string','default':'NA'})
-        request.fs.create('/user/cgs/cgs_variants_'+request.user.username+'.json', overwrite=True, data=json.dumps(avro_schema))
+            name = tmp[0]
+            type = tmp[1].split(',').pop(0).lower()
 
+            if type == 'int':
+                default_value = 0
+            else:
+                default_value = 'NA'
+
+            avro_schema['fields'].append({'name':name,'type':type,'default':default_value})
+        tmpf.write(json.dumps(avro_schema)+'\n')
+        request.fs.create('/user/cgs/cgs_variants_'+request.user.username+'.avsc.json', overwrite=True, data=json.dumps(avro_schema))
+
+        tmpf.close()
         handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants_tmp_"+request.user.username+";"), timeout_sec=30.0)
-        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") stored as avro TBLPROPERTIES ('avro.schema.url'='hdfs://localhost:8020/user/cgs/cgs_variants_"+request.user.username+".json');")
+        query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") stored as avro TBLPROPERTIES ('avro.schema.url'='hdfs://localhost:8020/user/cgs/cgs_variants_"+request.user.username+".avsc.json');")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
     else:
         query_server = get_query_server_config(name='impala')

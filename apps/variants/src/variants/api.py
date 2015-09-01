@@ -247,7 +247,7 @@ class VariantDetail(APIView):
           "variantName": '',
           "callSetIds": [],
           "referenceName": 1,
-          "start": 0,
+          "start": 1,
           "end": 0,
           "pageToken": '',
           "pageSize": 30,
