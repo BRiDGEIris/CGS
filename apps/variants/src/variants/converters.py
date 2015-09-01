@@ -673,10 +673,68 @@ def hbaseToJson(data):
     for hbase_field in data:
         if not hbase_field.startswith('I:CALL_'):
             continue
-        mapped['variants.calls[]'].append(json.loads(data[hbase_field].value))
+        try:
+            call = json.loads(data[hbase_field].value)
+            mapped['variants.calls[]'].append(call)
+        except:
+            pass
 
     return mapped
 
+
+def parquetToJson(data):
+    # Map the data received from ONE entry of parquet with multiple columns (we already have the name of columns in the keys) to a JSON object
+
+    mapped = {}
+    fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
+    mapping = fc.getMapping()
+
+    # Basic data to map
+    for pyvcf in mapping:
+
+        json_field = mapping[pyvcf]['json']
+        parquetColumn = str(mapping[pyvcf]['hbase'].replace('.','_')).lower()
+        type = mapping[pyvcf]['type']
+
+        try:
+            if type == 'int':
+                mapped[json_field] = int(data[parquetColumn])
+            elif type == 'float':
+                mapped[json_field] = float(data[parquetColumn])
+            elif type == 'dict':
+                mapped[json_field] = json.loads(data[parquetColumn])
+            elif type == 'list':
+                mapped[json_field] = data[parquetColumn].split(';')
+                if len(mapped[json_field]) == 1:
+                    mapped[json_field] = data[parquetColumn].split('|')
+            else:
+                mapped[json_field] = data[parquetColumn]
+        except:
+            if type == 'int':
+                value = 0
+            elif type == 'float':
+                value = 0.0
+            elif type == 'dict':
+                value = {}
+            elif type == 'list':
+                value = []
+            else:
+                value = ''
+            mapped[json_field] = value
+
+    # Now we need to take care of calls
+    mapped['variants.calls[]'] = []
+    for parquet_field in data:
+        if not parquet_field.startswith('i_call_'):
+            continue
+        if data[parquet_field] != 'NA':
+            try:
+                call = json.loads(data[parquet_field])
+                mapped['variants.calls[]'].append(call)
+            except:
+                pass
+
+    return mapped
 
 def jsonToSerializerData(json_data, fields, prefix):
     # Convert the json data from dbmapToJson to a data dict used by a DRF Serializer to initialize an object

@@ -27,7 +27,7 @@
     <favorites_list name="cgs-apps" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.44319525">
+    <splitter split-orientation="horizontal" split-proportion="0.44497043">
       <split-first>
         <leaf>
           <file leaf-file-name="index.mako" pinned="false" current-in-tab="false">
@@ -64,11 +64,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="serializers.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.3997344" vertical-offset="3434" max-vertical-offset="11490">
-                  <caret line="249" column="43" selection-start-line="249" selection-start-column="25" selection-end-line="249" selection-end-column="43" />
+                <state vertical-scroll-proportion="3.8214285" vertical-offset="8552" max-vertical-offset="11580">
+                  <caret line="563" column="8" selection-start-line="563" selection-start-column="8" selection-end-line="563" selection-end-column="8" />
                   <folding>
                     <element signature="e#0#38#0" expanded="true" />
                   </folding>
@@ -76,11 +76,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="api.py" pinned="false" current-in-tab="false">
+          <file leaf-file-name="api.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.0" vertical-offset="3989" max-vertical-offset="7755">
-                  <caret line="285" column="35" selection-start-line="285" selection-start-column="35" selection-end-line="285" selection-end-column="35" />
+                <state vertical-scroll-proportion="0.7503201" vertical-offset="3734" max-vertical-offset="7785">
+                  <caret line="288" column="8" selection-start-line="288" selection-start-column="8" selection-end-line="288" selection-end-column="8" />
                   <folding>
                     <element signature="e#23#34#0" expanded="true" />
                   </folding>
@@ -91,11 +91,11 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-8.964286" vertical-offset="1894" max-vertical-offset="12855">
+                <state vertical-scroll-proportion="-8.964286" vertical-offset="1894" max-vertical-offset="13725">
                   <caret line="143" column="70" selection-start-line="143" selection-start-column="67" selection-end-line="143" selection-end-column="70" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
-                    <marker date="1441120270158" expanded="true" signature="1812:7947" placeholder="..." />
+                    <marker date="1441122998318" expanded="true" signature="1812:7947" placeholder="..." />
                   </folding>
                 </state>
               </provider>
@@ -130,8 +130,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.9110226" vertical-offset="2779" max-vertical-offset="12855">
-                  <caret line="231" column="47" selection-start-line="231" selection-start-column="47" selection-end-line="231" selection-end-column="47" />
+                <state vertical-scroll-proportion="0.8193891" vertical-offset="10408" max-vertical-offset="13725">
+                  <caret line="735" column="0" selection-start-line="735" selection-start-column="0" selection-end-line="735" selection-end-column="0" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -163,9 +163,9 @@
         <option value="$PROJECT_DIR$/installCGSapps.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/views.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/urls.py" />
-        <option value="$PROJECT_DIR$/apps/variants/src/variants/api.py" />
-        <option value="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
+        <option value="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
+        <option value="$PROJECT_DIR$/apps/variants/src/variants/api.py" />
       </list>
     </option>
   </component>
@@ -627,6 +627,7 @@
           <caret line="395" column="39" selection-start-line="395" selection-start-column="39" selection-end-line="395" selection-end-column="39" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
+            <marker date="1441122998318" expanded="true" signature="1812:7947" placeholder="..." />
           </folding>
         </state>
       </provider>
@@ -720,6 +721,7 @@
           <caret line="12" column="31" selection-start-line="12" selection-start-column="31" selection-end-line="12" selection-end-column="31" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
+            <marker date="1441122998318" expanded="true" signature="1812:7947" placeholder="..." />
           </folding>
         </state>
       </provider>
@@ -914,26 +916,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/urls.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="90" max-vertical-offset="960">
-          <caret line="47" column="4" selection-start-line="47" selection-start-column="4" selection-end-line="47" selection-end-column="4" />
-          <folding>
-            <element signature="e#189#250#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="3989" max-vertical-offset="7755">
-          <caret line="285" column="35" selection-start-line="285" selection-start-column="35" selection-end-line="285" selection-end-column="35" />
-          <folding>
-            <element signature="e#23#34#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-38.67857" vertical-offset="747" max-vertical-offset="5970">
@@ -944,22 +926,43 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/urls.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.3997344" vertical-offset="3434" max-vertical-offset="11490">
-          <caret line="249" column="43" selection-start-line="249" selection-start-column="25" selection-end-line="249" selection-end-column="43" />
+        <state vertical-scroll-proportion="0.0" vertical-offset="90" max-vertical-offset="960">
+          <caret line="47" column="4" selection-start-line="47" selection-start-column="4" selection-end-line="47" selection-end-column="4" />
           <folding>
-            <element signature="e#0#38#0" expanded="true" />
+            <element signature="e#189#250#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.9110226" vertical-offset="2779" max-vertical-offset="12855">
-          <caret line="231" column="47" selection-start-line="231" selection-start-column="47" selection-end-line="231" selection-end-column="47" />
+        <state vertical-scroll-proportion="-8.964286" vertical-offset="1894" max-vertical-offset="13725">
+          <caret line="143" column="70" selection-start-line="143" selection-start-column="67" selection-end-line="143" selection-end-column="70" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
+            <marker date="1441122998318" expanded="true" signature="1812:7947" placeholder="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="3.8214285" vertical-offset="8552" max-vertical-offset="11580">
+          <caret line="563" column="8" selection-start-line="563" selection-start-column="8" selection-end-line="563" selection-end-column="8" />
+          <folding>
+            <element signature="e#0#38#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.7503201" vertical-offset="3734" max-vertical-offset="7785">
+          <caret line="288" column="8" selection-start-line="288" selection-start-column="8" selection-end-line="288" selection-end-column="8" />
+          <folding>
+            <element signature="e#23#34#0" expanded="true" />
           </folding>
         </state>
       </provider>

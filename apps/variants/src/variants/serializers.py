@@ -557,25 +557,31 @@ class VariantSerializer(serializers.Serializer):
     calls = VariantCallSerializer(variantcall_data='', many=True)
 
 
-    def __init__(self, request=None, pk=None, *args, **kwargs):
+    def __init__(self, request=None, pk=None, impala_data=None, *args, **kwargs):
         # TODO: for now we simply load the data inside the 'data' field, we should load
         # the data directly inside the current object
         if request is None and pk is None:
             return super(VariantSerializer, self).__init__(*args, **kwargs)
 
-        # We take the information in the database. As we are interested in one variant, we use HBase
-        hbaseApi = HbaseApi(user=request.user)
-        currentCluster = hbaseApi.getClusters().pop()
-        variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=['R','I','F'], startRowKey=pk, numRows=1, prefix=False)
+        # We take the information in the database if don't have it. As we are interested in one variant, we use HBase
+        if impala_data is None:
+            hbaseApi = HbaseApi(user=request.user)
+            currentCluster = hbaseApi.getClusters().pop()
+            variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=['R','I','F'], startRowKey=pk, numRows=1, prefix=False)
 
-        if len(variant) > 0:
-            variant = variant.pop()
+            if len(variant) > 0:
+                variant = variant.pop()
+            else:
+                variant = None
         else:
-            variant = None
+            variant = "raw data we got from impala..."
 
         if variant is not None:
             # We load it in the current object
-            json_data = hbaseToJson(variant.columns)
+            if impala_data is None:
+                json_data = hbaseToJson(variant.columns)
+            else:
+                json_data = parquetToJson(impala_data)
             d = jsonToSerializerData(json_data, self.fields, 'variants')
 
             d['calls'] = []

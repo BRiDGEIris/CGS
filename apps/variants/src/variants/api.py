@@ -277,7 +277,7 @@ class VariantDetail(APIView):
             data['end'] = 0
 
         if 'pageToken' not in data:
-            data['pageToken'] = 0
+            data['pageToken'] = ''
 
         if 'pageSize' not in data:
             data['pageSize'] = 5000
@@ -286,17 +286,17 @@ class VariantDetail(APIView):
             data['maxCalls'] = 5000
 
         # We map the json keys to the column names of parquet
-
+        
 
         # We prepare the query
         query = "SELECT * FROM variants WHERE r_c = '"+str(data['referenceName'])+"'"
 
         # We execute the query on parquet
-        tmpf = open('superhello.txt','w')
         query_server = get_query_server_config(name='impala')
         db = dbms.get(request.user, query_server=query_server)
         handle = db.execute_and_wait(hql_query(query), timeout_sec=360.0)
         result_set = []
+        last_pk = ''
         if handle:
             raw_data = db.fetch(handle, rows=data['pageSize'])
             columns = raw_data.cols()
@@ -310,14 +310,16 @@ class VariantDetail(APIView):
                 # We generate the data for the variant
                 current_variant = VariantSerializer(request=request, pk=raw_variant[0], impala_data=mapped_variant)
 
-                # We store the variant
-                result_set.append(current_variant)
-                tmpf.write('Variant found: '+str(raw_variant)+' ('+str(columns)+')\n')
+                # We store the variant (only the data, not the object)
+                result_set.append(current_variant.data)
+                last_pk = current_variant.data['id']
             db.close(handle)
-        tmpf.close()
 
         # We format the results and send them back
+        result['variants'] = result_set
+        result['nextPageToken'] = last_pk # Not perfect...
 
+        return Response(result)
 
         # > Code below NEEDS REFACTORING
 
@@ -492,7 +494,7 @@ class VariantDetail(APIView):
             result['error'] = 'No result found.'
             return HttpResponse(json.dumps(result), mimetype="application/json")
         """
-        return Response(json.dumps(result))
+        #return Response(json.dumps(result))
 
 
 class CallSetDetail(APIView):
