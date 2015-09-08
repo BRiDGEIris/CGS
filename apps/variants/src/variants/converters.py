@@ -59,10 +59,11 @@ class formatConverters(object):
         Output file: %s
         Converting method""" % (self.input_type, self.output_type, self.converting_method))
 
-    def convertVcfToFlatJson(self, organization="ulb", analysis="0"):
+    def convertVcfToFlatJson(self, request, organization="ulb", analysis="0"):
         """
             Convert a vcf file to a flat json file
             Check the doc: https://pyvcf.readthedocs.org/en/latest/API.html#vcf-model-call
+            Be careful: we do not respect exactly the google genomics structure in our database (but the api respects it)
         """
         if self.input_type not in ['vcf','vcf.gz'] or self.output_type != 'jsonflat':
             msg = "Error: vcf files (possibly gzipped) must be given as input files, and a jsonflat file should be given as output file."
@@ -81,6 +82,7 @@ class formatConverters(object):
         vcf_reader = vcf.Reader(f)
         for record in vcf_reader:
             linedic = {}
+
             for s in record.samples:
                 # We initialize the flat json (the specific name for the call column for each sample will be computed below)
                 linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
@@ -93,15 +95,16 @@ class formatConverters(object):
                 else:
                     linedic['variants.calls[]']['info{}']['read_depth'] = "NA"
 
-                if hasattr(s.data,'GT') and s.data.GT is not None:
-                    linedic['variants.calls[]']['genotype[]'].append(s.data.GT)
 
                 if len(uniqueInList(linedic['variants.calls[]']['genotype[]'])) > 1:
                     call_het = "Heterozygous"
                 else:
                     call_het = "Homozygous"
                 if isinstance(record.ALT, list):
-                    linedic['variants.alternateBases[]'] = record.ALT
+                    linedic['variants.alternateBases[]'] = '|'.join([str(a) for a in record.ALT])
+                    linedic['variants.calls[]']['genotype[]'] = '|'.join([str(a) for a in record.ALT])
+                else:
+                    linedic['variants.calls[]']['genotype[]'] = ["Some..."]
 
                 if isinstance(record.FILTER, list):
                     linedic['variants.filters[]'] = record.FILTER
@@ -144,7 +147,11 @@ class formatConverters(object):
                         print("Parameter '"+pyvcf_parameter+"' not supported.")
 
                     # Now we decide how to store the information in json
-                    if mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
+                    if mapping[pyvcf_parameter] == 'variants.alternateBases[]':
+                        pass
+                    elif mapping[pyvcf_parameter] == 'variants.calls[].genotype[]':
+                        linedic['variants.calls[]']['genotype[]'] = linedic['variants.alternateBases[]']
+                    elif mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
                         tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}')
                         linedic['variants.calls[]']['info{}'][tmp[1]] = value
                     elif mapping[pyvcf_parameter].startswith('variants.calls[].'):
@@ -168,7 +175,6 @@ class formatConverters(object):
                 del linedic['variants.calls[]']
                 if rowkey not in list_of_rowkeys:
                     list_of_rowkeys.append(rowkey)
-
 
                 # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
                 for jsonkey in linedic:
@@ -644,12 +650,33 @@ def dbmapToJson(data, database="impala"):
 
     return mapped
 
-def hbaseToJson(data):
-    # Map the data received from ONE entry (result.columns) of hbase with multiple columns to a JSON object
-
+def hbaseToJson(raw_data):
+    # Map the data received from multiple entries (result.columns) of hbase with multiple columns to a JSON object
+    # This function need to merge similar variants (=same chromosome, reference, ... but different alternates)
+    # into one object, to return data like google genomics
+    # The list of data received should belong to one variant at the end, we will exclude data with a rowkey containing
+    # different information than the first one (we only accept different alternates)
     mapped = {}
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
     mapping = fc.getMapping()
+
+    tmpf = open('superhello.txt','w')
+    tmpf.write(" >>>>>>>>>>>>>>>>> "+str(raw_data))
+
+    # We remove the variants we will not use
+    first_rowkey = raw_data[0].row
+    interesting_rowkey = first_rowkey.split('|')
+    interesting_rowkey.pop()
+    interesting_rowkey = '|'.join(interesting_rowkey)+'|'
+    good_variants = []
+    for hbase_variant in raw_data:
+        if hbase_variant.row.startswith(interesting_rowkey):
+            good_variants.append(hbase_variant)
+
+    tmpf.write(" GOOD VARIANTS: "+str(good_variants))
+    tmpf.close()
+    # We use a 'specific_variant' where we will take the data
+    specific_variant = raw_data[0].columns
 
     # Basic data to map
     for pyvcf in mapping:
@@ -658,39 +685,62 @@ def hbaseToJson(data):
         hbaseColumn = mapping[pyvcf]['hbase'].replace('.',':')
         type = mapping[pyvcf]['type']
 
-        try:
-            if type == 'int':
-                mapped[json_field] = int(data[hbaseColumn].value)
-            elif type == 'float':
-                mapped[json_field] = float(data[hbaseColumn].value)
-            elif type == 'dict':
-                mapped[json_field] = json.loads(data[hbaseColumn].value)
-            elif type == 'list':
-                mapped[json_field] = data[hbaseColumn].value.split(';')
-                if len(mapped[json_field]) == 1:
-                    mapped[json_field] = data[hbaseColumn].value.split('|')
-            else:
-                mapped[json_field] = data[hbaseColumn].value
-        except:
-            if type == 'int':
-                value = 0
-            elif type == 'float':
-                value = 0.0
-            elif type == 'dict':
-                value = {}
-            elif type == 'list':
-                value = []
-            else:
-                value = ''
-            mapped[json_field] = value
+        if json_field == 'variants.alternateBases[]':
+            alts = []
+            for good_variant in good_variants:
+                alternatives = good_variant.columns[hbaseColumn].value.split('|')
+                for alternative in alternatives:
+                    if alternative not in alts:
+                        alts.append(alternative)
+
+            mapped[json_field] = alts
+        else:
+            try:
+                if type == 'int':
+                    mapped[json_field] = int(specific_variant[hbaseColumn].value)
+                elif type == 'float':
+                    mapped[json_field] = float(specific_variant[hbaseColumn].value)
+                elif type == 'dict':
+                    mapped[json_field] = json.loads(specific_variant[hbaseColumn].value)
+                elif type == 'list':
+                    mapped[json_field] = specific_variant[hbaseColumn].value.split(';')
+                    if len(mapped[json_field]) == 1:
+                        mapped[json_field] = specific_variant[hbaseColumn].value.split('|')
+                else:
+                    mapped[json_field] = specific_variant[hbaseColumn].value
+            except:
+                if type == 'int':
+                    value = 0
+                elif type == 'float':
+                    value = 0.0
+                elif type == 'dict':
+                    value = {}
+                elif type == 'list':
+                    value = []
+                else:
+                    value = ''
+                mapped[json_field] = value
 
     # Now we need to take care of calls
     mapped['variants.calls[]'] = []
-    for hbase_field in data:
+    for hbase_field in specific_variant:
         if not hbase_field.startswith('I:CALL_'):
             continue
         try:
-            call = json.loads(data[hbase_field].value)
+            call = json.loads(specific_variant[hbase_field].value)
+
+            # We need to set the genotype[] value for the call, based on the different alts we generated above
+            genotype_call = call['genotype[]']
+            if genotype_call in alts:
+                genotype_id = 0
+                for alt in alts:
+                    genotype_id += 1
+                    if alt == genotype_call:
+                        call['genotype[]'] = [genotype_id]
+                        break
+            else:
+                call['genotype[]'] = 'ERROR ('+genotype_call+')'
+
             mapped['variants.calls[]'].append(call)
         except:
             pass

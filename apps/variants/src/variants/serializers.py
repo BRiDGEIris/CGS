@@ -185,7 +185,7 @@ class VCFSerializer(serializers.Serializer):
         # Now we try to analyze the vcf a little bit more with the correct tool
         json_filename = tmp_filename+'.cgs.json'
         convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
-        status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson()
+        status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request)
 
         # We put the output on hdfs
         with open(json_filename, 'r') as content_file:
@@ -567,21 +567,20 @@ class VariantSerializer(serializers.Serializer):
 
         # We take the information in the database if don't have it. As we are interested in one variant, we use HBase
         if impala_data is None:
+            # Documentation: https://github.com/cloudera/hue/blob/master/apps/hbase/src/hbase/api.py
             hbaseApi = HbaseApi(user=request.user)
             currentCluster = hbaseApi.getClusters().pop()
-            variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=['R','I','F'], startRowKey=pk, numRows=1, prefix=False)
 
-            if len(variant) > 0:
-                variant = variant.pop()
-            else:
-                variant = None
+            # We arbitrary take 100 rows (to be able to catch every different alternate. Maybe we should take more, not sure about that (we cannot
+            # set an endkey with the hbase api). Most of the times 100 rows will be way more than enough
+            variant = hbaseApi.getRows(cluster=currentCluster['name'], tableName='variants', columns=['R','I','F'], startRowKey=pk, numRows=100, prefix=False)
         else:
             variant = "raw data we got from impala..."
 
         if variant is not None:
             # We load it in the current object
             if impala_data is None:
-                json_data = hbaseToJson(variant.columns)
+                json_data = hbaseToJson(variant)
             else:
                 json_data = parquetToJson(impala_data)
             d = jsonToSerializerData(json_data, self.fields, 'variants')
