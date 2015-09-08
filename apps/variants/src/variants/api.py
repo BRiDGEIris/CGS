@@ -237,24 +237,24 @@ class VariantDetail(APIView):
 
     def search(self, request):
         # Search for a specific variant. See https://cloud.google.com/genomics/v1beta2/reference/variants/search
+
         result = {'status':1,'text':'Everything is alright.'}
+        data = request.data
 
-        data = request.data # For prod
-
-        """ For test only ""
+        """ For test only """
         data = {
           "variantSetIds": ['NA'],
           "variantName": '',
           "callSetIds": [],
-          "referenceName": 1,
+          "referenceName": 19,
           "start": 1,
-          "end": 0,
+          "end": 0, # Not supported (TODO: add this field in the rowkey?)
           "pageToken": '',
-          "pageSize": 30,
-          "maxCalls": 30
+          "pageSize": 5000, # Not supported, but should be very big for the moment
+          "maxCalls": 5000 # Not supported
         }
 
-        "" End test """
+        """ End test """
 
         # First we check the data and set default value like google genomics
         if 'variantSetIds' not in data:
@@ -318,20 +318,17 @@ class VariantDetail(APIView):
 
         where.append(tableNames['referenceName']+" = '"+str(data['referenceName'])+"'")
 
-        if data['start'] > 0:
+        if data['start'] > 0 and False:
             where.append(tableNames['start']+" >= "+str(data['start'])+"")
 
         if data['end'] > 0:
-            # TODO: compute length of the reference like in google genomics
+            # TODO: not supported yet
             where.append(tableNames['end']+" < "+str(data['end'])+"")
 
         if len(data['pageToken']) > 0:
             where.append(tableNames['pageToken']+" >= '"+str(data['pageToken'])+"'")
 
-        tmpf = open('superhello.txt','w')
         query = "SELECT * FROM variants WHERE "+" AND ".join(where)
-        tmpf.write(query)
-        tmpf.close()
 
         # We execute the query on parquet
         query_server = get_query_server_config(name='impala')
@@ -342,21 +339,37 @@ class VariantDetail(APIView):
         if handle:
             raw_data = db.fetch(handle, rows=data['pageSize'] + 1) # + 1 as we want to know there are multiple pages
             columns = raw_data.cols()
+
+            # We need to separate the different variants based on the rowkeys
+            good_variants = {}
+            number_of_good_variants = 0
             for raw_variant in raw_data.rows():
+                interesting_rowkey = raw_variant[0].split('|')
+                interesting_rowkey.pop()
+                interesting_rowkey = '|'.join(interesting_rowkey)+'|'
+                if interesting_rowkey not in good_variants:
+                    good_variants[interesting_rowkey] = []
+                    number_of_good_variants += 1
 
                 # We map the column names and the list of data for the current row
                 mapped_variant = {}
                 for i in xrange(len(columns)):
                     mapped_variant[columns[i]] = raw_variant[i]
 
-                # We generate the data for the variant
-                current_variant = VariantSerializer(request=request, pk=raw_variant[0], impala_data=mapped_variant)
+                # We save the modified variant
+                good_variants[interesting_rowkey].append(mapped_variant)
+
+            # We have the different variants correctly separated
+            for rowkey_part in good_variants:
+
+                # We generate the data for the variant (we give multiple rows but they are all related to the same variant)
+                current_variant = VariantSerializer(request=request, pk=good_variants[rowkey_part][0]['pk'], impala_data=good_variants[rowkey_part])
 
                 # We store the variant (only the data, not the object)
-                if len(result_set) < data['pageSize']:
+                if len(result_set) < number_of_good_variants:
                     result_set.append(current_variant.data)
                 else: # The last row  is used to check if there are still variants to list
-                    last_pk = current_variant.data['id']
+                    last_pk = good_variants[rowkey_part][len(good_variants[rowkey_part])-1]['id']
             db.close(handle)
 
         # We format the results and send them back

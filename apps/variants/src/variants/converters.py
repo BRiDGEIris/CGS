@@ -364,8 +364,7 @@ class formatConverters(object):
         # 2nd: we create a temporary file in which we will save each future line for HBase
         f = open(self.input_file, 'r')
         o = open(self.output_file, 'w')
-        tmpf = open('superhello.txt', 'w')
-        st = time.time()
+
         for json_line in f:
             variant = json.loads(json_line)
 
@@ -435,9 +434,6 @@ class formatConverters(object):
             o.write(json.dumps(output_line)+'\n')
         f.close()
         o.close()
-
-        tmpf.write("EXECUTION TIME: "+str(time.time()-st))
-        tmpf.close()
 
         status = "succeeded"
         return(status)
@@ -748,57 +744,96 @@ def hbaseToJson(raw_data):
     return mapped
 
 
-def parquetToJson(data):
-    # Map the data received from ONE entry of parquet with multiple columns (we already have the name of columns in the keys) to a JSON object
+def parquetToJson(raw_data):
+    # Map the data received from multiples entries of parquet with multiple columns (we already have the name of columns in the keys) to a JSON object
+    # This function need to merge similar variants (=same chromosome, reference, ... but different alternates)
+    # into one object, to return data like google genomics
+    # The list of data received should belong to one variant at the end, we will exclude data with a rowkey containing
+    # different information than the first one (we only accept different alternates)
 
     mapped = {}
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
     mapping = fc.getMapping()
 
+    # We remove the variants we will not use
+    first_rowkey = raw_data[0]['pk']
+    interesting_rowkey = first_rowkey.split('|')
+    interesting_rowkey.pop()
+    interesting_rowkey = '|'.join(interesting_rowkey)+'|'
+    good_variants = []
+    for impala_variant in raw_data:
+        if impala_variant['pk'].startswith(interesting_rowkey):
+            good_variants.append(impala_variant)
+
     # Basic data to map
+    specific_variant = good_variants[0]
     for pyvcf in mapping:
 
         json_field = mapping[pyvcf]['json']
         parquetColumn = str(mapping[pyvcf]['hbase'].replace('.','_')).lower()
         type = mapping[pyvcf]['type']
 
-        try:
-            if type == 'int':
-                mapped[json_field] = int(data[parquetColumn])
-            elif type == 'float':
-                mapped[json_field] = float(data[parquetColumn])
-            elif type == 'dict':
-                mapped[json_field] = json.loads(data[parquetColumn])
-            elif type == 'list':
-                mapped[json_field] = data[parquetColumn].split(';')
-                if len(mapped[json_field]) == 1:
-                    mapped[json_field] = data[parquetColumn].split('|')
-            else:
-                mapped[json_field] = data[parquetColumn]
-        except:
-            if type == 'int':
-                value = 0
-            elif type == 'float':
-                value = 0.0
-            elif type == 'dict':
-                value = {}
-            elif type == 'list':
-                value = []
-            else:
-                value = ''
-            mapped[json_field] = value
+        if json_field == 'variants.alternateBases[]':
+            alts = []
+            for good_variant in good_variants:
+                alternatives = good_variant[parquetColumn].split('|')
+                for alternative in alternatives:
+                    if alternative not in alts:
+                        alts.append(alternative)
+
+            mapped[json_field] = alts
+        else:
+            try:
+                if type == 'int':
+                    mapped[json_field] = int(specific_variant[parquetColumn])
+                elif type == 'float':
+                    mapped[json_field] = float(specific_variant[parquetColumn])
+                elif type == 'dict':
+                    mapped[json_field] = json.loads(specific_variant[parquetColumn])
+                elif type == 'list':
+                    mapped[json_field] = specific_variant[parquetColumn].split(';')
+                    if len(mapped[json_field]) == 1:
+                        mapped[json_field] = specific_variant[parquetColumn].split('|')
+                else:
+                    mapped[json_field] = specific_variant[parquetColumn]
+            except:
+                if type == 'int':
+                    value = 0
+                elif type == 'float':
+                    value = 0.0
+                elif type == 'dict':
+                    value = {}
+                elif type == 'list':
+                    value = []
+                else:
+                    value = ''
+                mapped[json_field] = value
 
     # Now we need to take care of calls
     mapped['variants.calls[]'] = []
-    for parquet_field in data:
-        if not parquet_field.startswith('i_call_'):
-            continue
-        if data[parquet_field] != 'NA':
-            try:
-                call = json.loads(data[parquet_field])
-                mapped['variants.calls[]'].append(call)
-            except:
-                pass
+    for current_variant in good_variants:
+        for parquet_field in current_variant:
+            if not parquet_field.startswith('i_call_'):
+                continue
+            if current_variant[parquet_field] != 'NA':
+                try:
+                    call = json.loads(current_variant[parquet_field])
+
+                    # We need to set the genotype[] value for the call, based on the different alts we generated above
+                    genotype_call = call['genotype[]']
+                    if genotype_call in alts:
+                        genotype_id = 0
+                        for alt in alts:
+                            genotype_id += 1
+                            if alt == genotype_call:
+                                call['genotype[]'] = [genotype_id]
+                                break
+                    else:
+                        call['genotype[]'] = 'ERROR ('+genotype_call+')'
+
+                    mapped['variants.calls[]'].append(call)
+                except:
+                    pass
 
     return mapped
 

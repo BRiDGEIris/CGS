@@ -544,7 +544,7 @@ class VariantSerializer(serializers.Serializer):
 
 
     def __init__(self, request=None, pk=None, impala_data=None, *args, **kwargs):
-        if request is None and pk is None:
+        if request is None and pk is None and impala_data is None:
             return super(VariantSerializer, self).__init__(*args, **kwargs)
 
         # We take the information in the database if don't have it. As we are interested in one variant, we use HBase
