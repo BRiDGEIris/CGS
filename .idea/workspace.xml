@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
     </list>
     <ignored path="cgs-apps.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -66,8 +65,8 @@
           <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.48207173" vertical-offset="8337" max-vertical-offset="11595">
-                  <caret line="580" column="26" selection-start-line="580" selection-start-column="26" selection-end-line="580" selection-end-column="26" />
+                <state vertical-scroll-proportion="0.5418327" vertical-offset="8322" max-vertical-offset="11595">
+                  <caret line="582" column="39" selection-start-line="582" selection-start-column="28" selection-end-line="582" selection-end-column="39" />
                   <folding>
                     <element signature="e#0#38#0" expanded="true" />
                   </folding>
@@ -78,8 +77,8 @@
           <file leaf-file-name="api.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="6.857143" vertical-offset="3897" max-vertical-offset="5805">
-                  <caret line="247" column="27" selection-start-line="247" selection-start-column="27" selection-end-line="247" selection-end-column="27" />
+                <state vertical-scroll-proportion="-1.7142857" vertical-offset="4122" max-vertical-offset="5805">
+                  <caret line="278" column="35" selection-start-line="278" selection-start-column="35" selection-end-line="278" selection-end-column="35" />
                   <folding>
                     <element signature="e#23#34#0" expanded="true" />
                   </folding>
@@ -90,8 +89,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-8.964286" vertical-offset="1894" max-vertical-offset="15105">
-                  <caret line="143" column="36" selection-start-line="143" selection-start-column="36" selection-end-line="143" selection-end-column="36" />
+                <state vertical-scroll-proportion="-15.928572" vertical-offset="1894" max-vertical-offset="15150">
+                  <caret line="156" column="32" selection-start-line="156" selection-start-column="32" selection-end-line="156" selection-end-column="32" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -128,8 +127,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.52191234" vertical-offset="1842" max-vertical-offset="15105">
-                  <caret line="149" column="79" selection-start-line="149" selection-start-column="79" selection-end-line="149" selection-end-column="79" />
+                <state vertical-scroll-proportion="0.7410359" vertical-offset="10407" max-vertical-offset="15150">
+                  <caret line="731" column="57" selection-start-line="731" selection-start-column="57" selection-end-line="731" selection-end-column="57" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -934,8 +933,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="6.857143" vertical-offset="3897" max-vertical-offset="5805">
-          <caret line="247" column="27" selection-start-line="247" selection-start-column="27" selection-end-line="247" selection-end-column="27" />
+        <state vertical-scroll-proportion="-1.7142857" vertical-offset="4122" max-vertical-offset="5805">
+          <caret line="278" column="35" selection-start-line="278" selection-start-column="35" selection-end-line="278" selection-end-column="35" />
           <folding>
             <element signature="e#23#34#0" expanded="true" />
           </folding>
@@ -944,8 +943,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.48207173" vertical-offset="8337" max-vertical-offset="11595">
-          <caret line="580" column="26" selection-start-line="580" selection-start-column="26" selection-end-line="580" selection-end-column="26" />
+        <state vertical-scroll-proportion="0.5418327" vertical-offset="8322" max-vertical-offset="11595">
+          <caret line="582" column="39" selection-start-line="582" selection-start-column="28" selection-end-line="582" selection-end-column="39" />
           <folding>
             <element signature="e#0#38#0" expanded="true" />
           </folding>
@@ -954,8 +953,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.52191234" vertical-offset="1842" max-vertical-offset="15105">
-          <caret line="149" column="79" selection-start-line="149" selection-start-column="79" selection-end-line="149" selection-end-column="79" />
+        <state vertical-scroll-proportion="0.7410359" vertical-offset="10407" max-vertical-offset="15150">
+          <caret line="731" column="57" selection-start-line="731" selection-start-column="57" selection-end-line="731" selection-end-column="57" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>

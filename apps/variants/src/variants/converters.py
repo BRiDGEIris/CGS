@@ -104,7 +104,7 @@ class formatConverters(object):
                     linedic['variants.alternateBases[]'] = '|'.join([str(a) for a in record.ALT])
                     linedic['variants.calls[]']['genotype[]'] = '|'.join([str(a) for a in record.ALT])
                 else:
-                    linedic['variants.calls[]']['genotype[]'] = ["Some..."]
+                    linedic['variants.calls[]']['genotype[]'] = ["Error..."]
 
                 if isinstance(record.FILTER, list):
                     linedic['variants.filters[]'] = record.FILTER
@@ -674,7 +674,6 @@ def hbaseToJson(raw_data):
             good_variants.append(hbase_variant)
 
     tmpf.write(" GOOD VARIANTS: "+str(good_variants))
-    tmpf.close()
     # We use a 'specific_variant' where we will take the data
     specific_variant = raw_data[0].columns
 
@@ -721,30 +720,34 @@ def hbaseToJson(raw_data):
                     value = ''
                 mapped[json_field] = value
 
-    # Now we need to take care of calls
+    # Now we need to take care of calls (we cannot simply take information from specific_variant, we need to take
+    # the data from all good_variants too)
     mapped['variants.calls[]'] = []
-    for hbase_field in specific_variant:
-        if not hbase_field.startswith('I:CALL_'):
-            continue
-        try:
-            call = json.loads(specific_variant[hbase_field].value)
+    for current_variant in good_variants:
+        for hbase_field in current_variant.columns:
+            tmpf.write(" >>>>>>>>>>>>>>>>>>> CALL? : "+hbase_field+" & "+current_variant.columns[hbase_field].value)
+            if not hbase_field.startswith('I:CALL_'):
+                continue
+            try:
+                call = json.loads(current_variant.columns[hbase_field].value)
 
-            # We need to set the genotype[] value for the call, based on the different alts we generated above
-            genotype_call = call['genotype[]']
-            if genotype_call in alts:
-                genotype_id = 0
-                for alt in alts:
-                    genotype_id += 1
-                    if alt == genotype_call:
-                        call['genotype[]'] = [genotype_id]
-                        break
-            else:
-                call['genotype[]'] = 'ERROR ('+genotype_call+')'
+                # We need to set the genotype[] value for the call, based on the different alts we generated above
+                genotype_call = call['genotype[]']
+                if genotype_call in alts:
+                    genotype_id = 0
+                    for alt in alts:
+                        genotype_id += 1
+                        if alt == genotype_call:
+                            call['genotype[]'] = [genotype_id]
+                            break
+                else:
+                    call['genotype[]'] = 'ERROR ('+genotype_call+')'
 
-            mapped['variants.calls[]'].append(call)
-        except:
-            pass
+                mapped['variants.calls[]'].append(call)
+            except:
+                pass
 
+    tmpf.close()
     return mapped
 
 
