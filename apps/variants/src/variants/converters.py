@@ -18,6 +18,7 @@ from beeswax.server import dbms
 from beeswax.server.dbms import get_query_server_config
 from subprocess import *
 import json
+import time
 
 class formatConverters(object):
     """
@@ -71,7 +72,6 @@ class formatConverters(object):
             raise ValueError(msg)
 
         mapping = self.getMappingPyvcfToJson()
-
 
         f = open(self.input_file, 'r')
         o = open(self.output_file, 'w')
@@ -364,7 +364,8 @@ class formatConverters(object):
         # 2nd: we create a temporary file in which we will save each future line for HBase
         f = open(self.input_file, 'r')
         o = open(self.output_file, 'w')
-
+        tmpf = open('superhello.txt', 'w')
+        st = time.time()
         for json_line in f:
             variant = json.loads(json_line)
 
@@ -434,6 +435,9 @@ class formatConverters(object):
             o.write(json.dumps(output_line)+'\n')
         f.close()
         o.close()
+
+        tmpf.write("EXECUTION TIME: "+str(time.time()-st))
+        tmpf.close()
 
         status = "succeeded"
         return(status)
@@ -660,9 +664,6 @@ def hbaseToJson(raw_data):
     fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
     mapping = fc.getMapping()
 
-    tmpf = open('superhello.txt','w')
-    tmpf.write(" >>>>>>>>>>>>>>>>> "+str(raw_data))
-
     # We remove the variants we will not use
     first_rowkey = raw_data[0].row
     interesting_rowkey = first_rowkey.split('|')
@@ -673,7 +674,6 @@ def hbaseToJson(raw_data):
         if hbase_variant.row.startswith(interesting_rowkey):
             good_variants.append(hbase_variant)
 
-    tmpf.write(" GOOD VARIANTS: "+str(good_variants))
     # We use a 'specific_variant' where we will take the data
     specific_variant = raw_data[0].columns
 
@@ -725,7 +725,6 @@ def hbaseToJson(raw_data):
     mapped['variants.calls[]'] = []
     for current_variant in good_variants:
         for hbase_field in current_variant.columns:
-            tmpf.write(" >>>>>>>>>>>>>>>>>>> CALL? : "+hbase_field+" & "+current_variant.columns[hbase_field].value)
             if not hbase_field.startswith('I:CALL_'):
                 continue
             try:
@@ -746,8 +745,6 @@ def hbaseToJson(raw_data):
                 mapped['variants.calls[]'].append(call)
             except:
                 pass
-
-    tmpf.close()
     return mapped
 
 
@@ -924,8 +921,6 @@ def database_create_variants(request, temporary=False, specific_columns=None):
 
     # Deleting the old table and creating the new one
     if temporary is True:
-        tmpf = open('superhello.txt','w')
-        tmpf.write(">>>>>>>>>>>> Call from temporary creation: ")
         query_server = get_query_server_config(name='hive')
         db = dbms.get(request.user, query_server=query_server)
 
@@ -941,10 +936,8 @@ def database_create_variants(request, temporary=False, specific_columns=None):
                 default_value = 'NA'
 
             avro_schema['fields'].append({'name':name,'type':type,'default':default_value})
-        tmpf.write(json.dumps(avro_schema)+'\n')
         request.fs.create('/user/cgs/cgs_variants_'+request.user.username+'.avsc.json', overwrite=True, data=json.dumps(avro_schema))
 
-        tmpf.close()
         handle = db.execute_and_wait(hql_query("DROP TABLE IF EXISTS variants_tmp_"+request.user.username+";"), timeout_sec=30.0)
         query = hql_query("CREATE TABLE variants_tmp_"+request.user.username+"("+"".join(variants_table)+") stored as avro TBLPROPERTIES ('avro.schema.url'='hdfs://localhost:8020/user/cgs/cgs_variants_"+request.user.username+".avsc.json');")
         handle = db.execute_and_wait(query, timeout_sec=30.0)

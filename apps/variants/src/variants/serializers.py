@@ -332,22 +332,6 @@ class VCFSerializer(serializers.Serializer):
                     del hbase_data['rowkey']
                     del hbase_data['pk']
 
-                    # We check the data already in the database, maybe we have already a corresponding variant
-                    ""
-                    try:
-                        old_variant = VariantSerializer(request=request, pk=rowkey)
-                        #tmpf.write('Found :'+str(old_variant.initial_data['names'])+'\n')
-                        names = [hbase_data['R:NAMES']]
-                        for old_name in old_variant.initial_data['names']:
-                            if old_name not in names:
-                                names.append(old_name)
-                        hbase_data['R:NAMES'] = '|'.join(names)
-
-                        hbaseApi.deleteColumn(cluster=currentCluster['name'], tableName='variants', row=rowkey, column='R:NAMES')
-                    except Exception as e:
-                        tmpf.write('Error while checking the list of names ('+str(e.message)+'):/.')
-                        pass
-                    ""
                     # We can save the new variant
                     hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
                 except Exception as e:
@@ -560,8 +544,6 @@ class VariantSerializer(serializers.Serializer):
 
 
     def __init__(self, request=None, pk=None, impala_data=None, *args, **kwargs):
-        # TODO: for now we simply load the data inside the 'data' field, we should load
-        # the data directly inside the current object
         if request is None and pk is None:
             return super(VariantSerializer, self).__init__(*args, **kwargs)
 
@@ -594,7 +576,6 @@ class VariantSerializer(serializers.Serializer):
             kwargs['data'] = d
             super(VariantSerializer, self).__init__(*args, **kwargs)
 
-            # TODO: we should remove that method call when we resolve the TODO above.
             self.is_valid()
 
     def post(self, request):
