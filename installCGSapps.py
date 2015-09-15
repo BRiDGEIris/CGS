@@ -101,12 +101,12 @@ for i in xrange(1, len(sys.argv)):
         distutils.dir_util.copy_tree(app_src, app_directory)
 
         # App static files
-        if not os.path.exists(hue_directory+"/build/static/variants"):
+        if not os.path.exists(hue_directory+"/build/static/"+app_name):
             try:
-                os.makedirs(hue_directory+"/build/static/variants")
+                os.makedirs(hue_directory+"/build/static/"+app_name)
             except:
-                sys.exit("Impossible to create the static folder 'variants' in '"+hue_directory+"/build/static/variants'.")
-        distutils.dir_util.copy_tree(app_src+"/src/variants/static", hue_directory+"/build/static/variants")
+                sys.exit("Impossible to create the static folder '"+app_name+"' in '"+hue_directory+"/build/static/"+app_name+"'.")
+        distutils.dir_util.copy_tree(app_src+"/src/"+app_name+"/static", hue_directory+"/build/static/"+app_name)
 
     except:
         sys.exit("Impossible to copy data from '"+app_src+"' to '"+app_directory+"'.")
