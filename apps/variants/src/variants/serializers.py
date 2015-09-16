@@ -172,11 +172,9 @@ class VCFSerializer(serializers.Serializer):
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         # To analyze the content of the vcf, we need to get it from the hdfs to this node
-        buffer = 1024*1024
+        buffer = min(length,1024*1024*512)
         tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
         f = open(tmp_filename,mode='w')
-        if length < 1024*1024*512:
-            buffer = length
         for offset in xrange(0, length, buffer):
             tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=offset, length=buffer, bufsize=buffer)
             f.write(tmp_vcf)
@@ -188,13 +186,12 @@ class VCFSerializer(serializers.Serializer):
         status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request)
 
         # We put the output on hdfs
+        json_size = os.path.getsize(json_filename)
+        buffer = min(json_size, 1024*1024*512)
         with open(json_filename, 'r') as content_file:
-            if length < 1024*1024*512: # We use the length of the original vcf file, it doesn't really matter
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data=content_file.read())
-            else:
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
-                for line in content_file:
-                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=line)
+            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
+            for offset in xrange(0, json_size, buffer):
+                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=content_file.read(buffer))
 
         # We eventually modify the avsc file with the new calls
         avro_schema = {}
@@ -237,30 +234,28 @@ class VCFSerializer(serializers.Serializer):
         status = convert.convertFlatJsonToHbase()
 
         # We put the hbase file on hdfs
+        hbase_length = os.path.getsize(json_filename+'.hbase')
+        buffer = min(hbase_length,1024*1024*512)
         with open(json_filename+'.hbase', 'r') as content_file:
-            if length < 1024*1024*512: # We use the length of the original vcf file, it doesn't really matter
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data=content_file.read())
-            else:
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
-                for line in content_file:
-                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=line)
+            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
+            for offset in xrange(0, hbase_length, buffer):
+                cont = content_file.read(buffer)
+                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=cont)
 
         # We convert the hbase to avro file
         convert = formatConverters(input_file=json_filename+'.hbase',output_file=json_filename+'.avro',input_type='jsonflat',output_type='avro')
         status = convert.convertHbaseToAvro(avscFile='variants.avsc')
 
         # We put the avro file on hdfs
+        avro_length = os.path.getsize(json_filename+'.avro')
+        buffer = min(avro_length, 1024*1024*512)
         with open(json_filename+'.avro', 'r') as content_file:
-            if length < 1024*1024*512: # We use the length of the original vcf file, it doesn't really matter
-                text = content_file.read()
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data=text)
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data=text)
-            else:
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
-                request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data='')
-                for line in content_file:
-                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=line)
-                    request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', data=line)
+            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
+            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data='')
+            for offset in xrange(0, avro_length, buffer):
+                cont = content_file.read(buffer)
+                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=cont)
+                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', data=cont)
 
         """ For test only ""
         convert = formatConverters(input_file='myapps/variants/twitter-content.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
