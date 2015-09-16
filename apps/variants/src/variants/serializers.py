@@ -9,6 +9,7 @@ from models import *
 import time
 import os
 import json
+import threading
 
 # The fields of the following serializers directly come from https://cloud.google.com/genomics/v1beta2/reference/
 
@@ -171,174 +172,12 @@ class VCFSerializer(serializers.Serializer):
         query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_vcf_import.tsv' into table clinical_sample;")
         handle = db.execute_and_wait(query, timeout_sec=30.0)
 
-        # To analyze the content of the vcf, we need to get it from the hdfs to this node
-        buffer = min(length,1024*1024*512)
-        tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
-        f = open(tmp_filename,mode='w')
-        for offset in xrange(0, length, buffer):
-            tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=offset, length=buffer, bufsize=buffer)
-            f.write(tmp_vcf)
-        f.close()
-
-        # Now we try to analyze the vcf a little bit more with the correct tool
-        json_filename = tmp_filename+'.cgs.json'
-        convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
-        status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request)
-
-        # We put the output on hdfs
-        json_size = os.path.getsize(json_filename)
-        buffer = min(json_size, 1024*1024*512)
-        with open(json_filename, 'r') as content_file:
-            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
-            for offset in xrange(0, json_size, buffer):
-                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=content_file.read(buffer))
-
-        # We eventually modify the avsc file with the new calls
-        avro_schema = {}
-        with open('myapps/variants/variants.avsc','r') as content_file:
-            avro_schema = json.loads(content_file.read())
-            with open('variants.avsc','w') as f:
-                f.write(json.dumps(avro_schema))
-
-        existing_columns = []
-        for field in avro_schema['fields']:
-            existing_columns.append(field['name'])
-        modified_avro_schema = False
-        specific_columns = [] # Used below for the import in impala/hive
-        for sample_id in ids_of_samples:
-            destination_field = 'I_CALL_'+sample_id
-
-            if destination_field not in specific_columns:
-                specific_columns.append(destination_field)
-
-            if destination_field not in existing_columns:
-                # The current sample does not exist yet in the avsc file, we need to add it
-                call_schema = {"name":destination_field,"type":"string","doc":"Column for a specific sample","default":"NA"}
-                avro_schema['fields'].append(call_schema)
-                existing_columns.append(destination_field)
-                modified_avro_schema = True
-
-        if modified_avro_schema is True:
-            # We need to save the new schema, first we save the old version, then we modify the current one
-            with open('variants.avsc','r') as content_file:
-                with open('variants.'+str(time.time())+'.avsc', 'w') as archive_file:
-                    archive_file.write(content_file.read())
-
-            with open('variants.avsc','w') as content_file:
-                content_file.write(json.dumps(avro_schema))
-
-            request.fs.create('/user/cgs/cgs_variants.avsc', overwrite=True, data=json.dumps(avro_schema))
-
-        # We convert the flat json to hbase (mostly a key mapping)
-        convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='jsonflat',output_type='hbase')
-        status = convert.convertFlatJsonToHbase()
-
-        # We put the hbase file on hdfs
-        hbase_length = os.path.getsize(json_filename+'.hbase')
-        buffer = min(hbase_length,1024*1024*512)
-        with open(json_filename+'.hbase', 'r') as content_file:
-            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
-            for offset in xrange(0, hbase_length, buffer):
-                cont = content_file.read(buffer)
-                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=cont)
-
-        # We convert the hbase to avro file
-        convert = formatConverters(input_file=json_filename+'.hbase',output_file=json_filename+'.avro',input_type='jsonflat',output_type='avro')
-        status = convert.convertHbaseToAvro(avscFile='variants.avsc')
-
-        # We put the avro file on hdfs
-        avro_length = os.path.getsize(json_filename+'.avro')
-        buffer = min(avro_length, 1024*1024*512)
-        with open(json_filename+'.avro', 'r') as content_file:
-            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
-            request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data='')
-            for offset in xrange(0, avro_length, buffer):
-                cont = content_file.read(buffer)
-                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=cont)
-                request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', data=cont)
-
-        """ For test only ""
-        convert = formatConverters(input_file='myapps/variants/twitter-content.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
-        status = convert.convertHbaseToAvro(avscFile='myapps/variants/twitter.avsc',modify=False)
-        with open('tmp.avro', 'r') as content_file:
-            request.fs.create('/user/cgs/cgs_twitter.avro', overwrite=True, data=content_file.read())
-        "" End test """
-
-        tmpf = open('superhello.txt','a')
-        # O: We get the columns from the parquet table to detect missing columns for the new calls we just created
-        query = hql_query("show column stats variants")
-        handle = db.execute_and_wait(query, timeout_sec=30.0)
-        data = db.fetch(handle, rows=1000000)
-        rows = list(data.rows())
-        columns_for_new_calls = []
-        existing_calls_columns = []
-        for row in rows:
-            current_column = row[0]
-            if current_column.startswith('i_call_'):
-                existing_calls_columns.append(str(current_column).lower())
-
-        for current_sample in ids_of_samples:
-            destination_field = str('I_CALL_'+current_sample).lower()
-            if destination_field not in existing_calls_columns and destination_field not in columns_for_new_calls:
-                columns_for_new_calls.append(destination_field)
-        tmpf.write("Existing calls: "+json.dumps(existing_calls_columns)+"\r\n")
-        tmpf.write("New calls: "+json.dumps(columns_for_new_calls))
-        tmpf.close()
-
-        # 1st: we create a temporary hive table with avro storage
-        result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
-
-        tmpf = open('superhello.txt','a')
-        # 2nd: we import the previously created avro file inside the temporary avro table
-        query_server = get_query_server_config(name='hive')
-        hive_db = dbms.get(request.user, query_server=query_server)
-        variants_columns = []
-        for variants_column in variants_table:
-            variants_columns.append(str(variants_column).split(' ').pop(0))
-
-        query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_"+json_filename+".avro' into table variants_tmp_"+request.user.username+";")
-        handle = hive_db.execute_and_wait(query, timeout_sec=3600.0)
-
-        # Necessary for impala to detect an hive table
-        query = hql_query("invalidate metadata;")
-        handle = db.execute_and_wait(query, timeout_sec=30.0)
-
-        # 3rd: we eventually modify the global parquet table to add the eventual new columns for each call
-        if len(columns_for_new_calls) > 0:
-            query = hql_query("alter table variants add columns ("+' STRING, '.join(columns_for_new_calls)+" STRING)")
-            handle = db.execute_and_wait(query, timeout_sec=3600.0)
-
-        # 4th: we import the data from the temporary avro table to the global parquet table
-        query = hql_query("insert into table variants ("+','.join(variants_columns)+") select "+','.join(variants_columns)+" from variants_tmp_"+request.user.username+" ;")
-        handle = db.execute_and_wait(query, timeout_sec=3600.0)
-
-        # 5th: we delete the temporary table
-        #query = hql_query("drop table variants_tmp_"+request.user.username+";")
-        #handle = hive_db.execute_and_wait(query, timeout_sec=30.0)
-
-
-        # We put the data in HBase. For now we do it simply, but we should use the bulk upload (TODO)
-        with open(json_filename+'.hbase', 'r') as content_file:
-            for line in content_file:
-                try:
-                    # We create the json content
-                    hbase_data = json.loads(line)
-                    rowkey = hbase_data['rowkey']
-                    del hbase_data['rowkey']
-                    del hbase_data['pk']
-
-                    # We can save the new variant
-                    hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
-                except Exception as e:
-                    fprint("Error while reading the HBase json file")
-                    tmpf.write('Error ('+str(e.message)+'):/.')
-
-        tmpf.close()
-
-
-        # We delete the temporary file previously created on this node
-        os.remove(tmp_filename)
-        os.remove(json_filename)
+        # We analyze the vcf, then insert the data inside hbase & impala. We don't wait for the import to finish to return the page
+        result['text'] = 'The import started correctly and the data from the vcf should be available soon.'
+        thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
+        thr.start()
+        #thr.join()
+        #import_of_vcf(request, filename, length)
 
         if status == 'succeeded':
             result['status'] = 1
@@ -346,6 +185,188 @@ class VCFSerializer(serializers.Serializer):
             result['status'] = 0
 
         return result
+
+def import_of_vcf(request, filename, length):
+    # It is in charge to import a vcf (convert the vcf to avro, etc.), and as it is not fast, we should call
+    # this method asynchronously7
+
+    # Connexion to the db
+    try:
+        query_server = get_query_server_config(name='impala')
+        db = dbms.get(request.user, query_server=query_server)
+    except Exception:
+        return False
+
+    # To analyze the content of the vcf, we need to get it from the hdfs to this node
+    buffer = min(length,1024*1024*512)
+    tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
+    f = open(tmp_filename,mode='w')
+    for offset in xrange(0, length, buffer):
+        tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=offset, length=buffer, bufsize=buffer)
+        f.write(tmp_vcf)
+    f.close()
+
+    # Now we try to analyze the vcf a little bit more with the correct tool
+    json_filename = tmp_filename+'.cgs.json'
+    convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
+    status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request)
+
+    # We put the output on hdfs
+    json_size = os.path.getsize(json_filename)
+    buffer = min(json_size, 1024*1024*512)
+    with open(json_filename, 'r') as content_file:
+        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
+        for offset in xrange(0, json_size, buffer):
+            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=content_file.read(buffer))
+
+    # We eventually modify the avsc file with the new calls
+    avro_schema = {}
+    with open('myapps/variants/variants.avsc','r') as content_file:
+        avro_schema = json.loads(content_file.read())
+        with open('variants.avsc','w') as f:
+            f.write(json.dumps(avro_schema))
+
+    existing_columns = []
+    for field in avro_schema['fields']:
+        existing_columns.append(field['name'])
+    modified_avro_schema = False
+    specific_columns = [] # Used below for the import in impala/hive
+    for sample_id in ids_of_samples:
+        destination_field = 'I_CALL_'+sample_id
+
+        if destination_field not in specific_columns:
+            specific_columns.append(destination_field)
+
+        if destination_field not in existing_columns:
+            # The current sample does not exist yet in the avsc file, we need to add it
+            call_schema = {"name":destination_field,"type":"string","doc":"Column for a specific sample","default":"NA"}
+            avro_schema['fields'].append(call_schema)
+            existing_columns.append(destination_field)
+            modified_avro_schema = True
+
+    if modified_avro_schema is True:
+        # We need to save the new schema, first we save the old version, then we modify the current one
+        with open('variants.avsc','r') as content_file:
+            with open('variants.'+str(time.time())+'.avsc', 'w') as archive_file:
+                archive_file.write(content_file.read())
+
+        with open('variants.avsc','w') as content_file:
+            content_file.write(json.dumps(avro_schema))
+
+        request.fs.create('/user/cgs/cgs_variants.avsc', overwrite=True, data=json.dumps(avro_schema))
+
+    # We convert the flat json to hbase (mostly a key mapping)
+    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='jsonflat',output_type='hbase')
+    status = convert.convertFlatJsonToHbase()
+
+    # We put the hbase file on hdfs
+    hbase_length = os.path.getsize(json_filename+'.hbase')
+    buffer = min(hbase_length,1024*1024*512)
+    with open(json_filename+'.hbase', 'r') as content_file:
+        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
+        for offset in xrange(0, hbase_length, buffer):
+            cont = content_file.read(buffer)
+            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=cont)
+
+    # We convert the hbase to avro file
+    convert = formatConverters(input_file=json_filename+'.hbase',output_file=json_filename+'.avro',input_type='jsonflat',output_type='avro')
+    status = convert.convertHbaseToAvro(avscFile='variants.avsc')
+
+    # We put the avro file on hdfs
+    avro_length = os.path.getsize(json_filename+'.avro')
+    buffer = min(avro_length, 1024*1024*512)
+    with open(json_filename+'.avro', 'r') as content_file:
+        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
+        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data='')
+        for offset in xrange(0, avro_length, buffer):
+            cont = content_file.read(buffer)
+            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=cont)
+            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', data=cont)
+
+    """ For test only ""
+    convert = formatConverters(input_file='myapps/variants/twitter-content.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
+    status = convert.convertHbaseToAvro(avscFile='myapps/variants/twitter.avsc',modify=False)
+    with open('tmp.avro', 'r') as content_file:
+        request.fs.create('/user/cgs/cgs_twitter.avro', overwrite=True, data=content_file.read())
+    "" End test """
+
+    tmpf = open('superhello.txt','a')
+    # O: We get the columns from the parquet table to detect missing columns for the new calls we just created
+    query = hql_query("show column stats variants")
+    handle = db.execute_and_wait(query, timeout_sec=30.0)
+    data = db.fetch(handle, rows=1000000)
+    rows = list(data.rows())
+    columns_for_new_calls = []
+    existing_calls_columns = []
+    for row in rows:
+        current_column = row[0]
+        if current_column.startswith('i_call_'):
+            existing_calls_columns.append(str(current_column).lower())
+
+    for current_sample in ids_of_samples:
+        destination_field = str('I_CALL_'+current_sample).lower()
+        if destination_field not in existing_calls_columns and destination_field not in columns_for_new_calls:
+            columns_for_new_calls.append(destination_field)
+    tmpf.write("Existing calls: "+json.dumps(existing_calls_columns)+"\r\n")
+    tmpf.write("New calls: "+json.dumps(columns_for_new_calls))
+    tmpf.close()
+
+    # 1st: we create a temporary hive table with avro storage
+    result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
+
+    tmpf = open('superhello.txt','a')
+    # 2nd: we import the previously created avro file inside the temporary avro table
+    query_server = get_query_server_config(name='hive')
+    hive_db = dbms.get(request.user, query_server=query_server)
+    variants_columns = []
+    for variants_column in variants_table:
+        variants_columns.append(str(variants_column).split(' ').pop(0))
+
+    query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_"+json_filename+".avro' into table variants_tmp_"+request.user.username+";")
+    handle = hive_db.execute_and_wait(query, timeout_sec=3600.0)
+
+    # Necessary for impala to detect an hive table
+    query = hql_query("invalidate metadata;")
+    handle = db.execute_and_wait(query, timeout_sec=30.0)
+
+    # 3rd: we eventually modify the global parquet table to add the eventual new columns for each call
+    if len(columns_for_new_calls) > 0:
+        query = hql_query("alter table variants add columns ("+' STRING, '.join(columns_for_new_calls)+" STRING)")
+        handle = db.execute_and_wait(query, timeout_sec=3600.0)
+
+    # 4th: we import the data from the temporary avro table to the global parquet table
+    query = hql_query("insert into table variants ("+','.join(variants_columns)+") select "+','.join(variants_columns)+" from variants_tmp_"+request.user.username+" ;")
+    handle = db.execute_and_wait(query, timeout_sec=3600.0)
+
+    # 5th: we delete the temporary table
+    #query = hql_query("drop table variants_tmp_"+request.user.username+";")
+    #handle = hive_db.execute_and_wait(query, timeout_sec=30.0)
+
+
+    # We put the data in HBase. For now we do it simply, but we should use the bulk upload (TODO)
+    with open(json_filename+'.hbase', 'r') as content_file:
+        for line in content_file:
+            try:
+                # We create the json content
+                hbase_data = json.loads(line)
+                rowkey = hbase_data['rowkey']
+                del hbase_data['rowkey']
+                del hbase_data['pk']
+
+                # We can save the new variant
+                hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+            except Exception as e:
+                fprint("Error while reading the HBase json file")
+                tmpf.write('Error ('+str(e.message)+'):/.')
+
+    tmpf.close()
+
+
+    # We delete the temporary file previously created on this node
+    os.remove(tmp_filename)
+    os.remove(json_filename)
+
+    return True
 
 """
     Dataset
