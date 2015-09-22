@@ -67,8 +67,9 @@ class VCFSerializer(serializers.Serializer):
             raw_lines.pop()
             samples_quantity_received = samples_quantity
 
-        if samples_quantity !=  samples_quantity_received:
+        if samples_quantity != samples_quantity_received and False:# TODO: remove this part of code later
             fprint(request.POST['vcf_data'])
+
             result['status'] = 0
             result['error'] = 'The number of samples sent do not correspond to the number of samples found in the vcf file ('+str(samples_quantity_received)+' vs '+str(samples_quantity)+').'
             return result
@@ -77,7 +78,7 @@ class VCFSerializer(serializers.Serializer):
 
         questions_quantity = len(q)
         for raw_line in raw_lines:
-            if len(raw_line.split(",")) != questions_quantity:
+            if len(raw_line.split(",")) != questions_quantity and False:# TODO: remove this part of code later
                 result['status'] = 0
                 result['error'] = 'The number of information sent do not correspond to the number of questions asked for each sample ('+str(len(raw_line.split(",")))+' vs '+str(questions_quantity)+').'
                 return result
@@ -96,77 +97,80 @@ class VCFSerializer(serializers.Serializer):
         currentCluster = hbaseApi.getClusters().pop()
 
         # Now we analyze each sample information
-        tsv_content = ''
-        for raw_line in raw_lines:
-            answers = raw_line.split(",")
+        try:
+            tsv_content = ''
+            for raw_line in raw_lines:
+                answers = raw_line.split(",")
 
-            # We check each answer for each question
-            current_sample = {}
-            for key, answer in enumerate(answers):
+                # We check each answer for each question
+                current_sample = {}
+                for key, answer in enumerate(answers):
 
-                # We take the related field
-                field = q[key]
-                info = questions['sample_registration'][field]
+                    # We take the related field
+                    field = q[key]
+                    info = questions['sample_registration'][field]
 
-                # We check if the information is correct
-                if not type(info) is dict:
-                    pass # Nothing to do here, it's normal. We could compare the sample id received from the ones found in the file maybe.
-                elif info['field'] == 'select':
-                    if not answer in info['fields']:
-                        result['status'] = 0
-                        result['error'] = 'The value "'+str(answer)+'" given for the field "'+field+'" is invalid (Valid values: '+str(info['fields'])+').'
-                        return result
-                else:
-                    # TODO: make the different verification of the 'text' and 'date' format
-                    pass
+                    # We check if the information is correct
+                    if not type(info) is dict:
+                        pass # Nothing to do here, it's normal. We could compare the sample id received from the ones found in the file maybe.
+                    elif info['field'] == 'select':
+                        if not answer in info['fields']:
+                            result['status'] = 0
+                            result['error'] = 'The value "'+str(answer)+'" given for the field "'+field+'" is invalid (Valid values: '+str(info['fields'])+').'
+                            return result
+                    else:
+                        # TODO: make the different verification of the 'text' and 'date' format
+                        pass
 
-                current_sample[field] = answer
+                    current_sample[field] = answer
 
-            fprint(current_sample)
-            if not 'sample_id' in current_sample:
-                current_sample['sample_id'] = ''
-            sample_id = str(current_sample['sample_id'])
+                fprint(current_sample)
+                if not 'sample_id' in current_sample:
+                    current_sample['sample_id'] = ''
+                sample_id = str(current_sample['sample_id'])
 
-            if not 'patient_id' in current_sample:
-                current_sample['patient_id'] = ''
-            patient_id = str(current_sample['patient_id'])
+                if not 'patient_id' in current_sample:
+                    current_sample['patient_id'] = ''
+                patient_id = str(current_sample['patient_id'])
 
-            if not 'sample_collection_date' in current_sample:
-                current_sample['sample_collection_date'] = ''
-            date_of_collection = str(current_sample['sample_collection_date'])
+                if not 'sample_collection_date' in current_sample:
+                    current_sample['sample_collection_date'] = ''
+                date_of_collection = str(current_sample['sample_collection_date'])
 
-            if not 'original_sample_id' in current_sample:
-                current_sample['original_sample_id'] = ''
-            original_sample_id = str(current_sample['original_sample_id'])
+                if not 'original_sample_id' in current_sample:
+                    current_sample['original_sample_id'] = ''
+                original_sample_id = str(current_sample['original_sample_id'])
 
-            if not 'collection_status' in current_sample:
-                current_sample['collection_status'] = ''
-            status = str(current_sample['collection_status'])
+                if not 'collection_status' in current_sample:
+                    current_sample['collection_status'] = ''
+                status = str(current_sample['collection_status'])
 
-            if not 'sample_type' in current_sample:
-                current_sample['sample_type'] = ''
-            sample_type = str(current_sample['sample_type'])
+                if not 'sample_type' in current_sample:
+                    current_sample['sample_type'] = ''
+                sample_type = str(current_sample['sample_type'])
 
-            if not 'biological_contamination' in current_sample:
-                current_sample['biological_contamination'] = '0'
-            biological_contamination = str(current_sample['biological_contamination'])
+                if not 'biological_contamination' in current_sample:
+                    current_sample['biological_contamination'] = '0'
+                biological_contamination = str(current_sample['biological_contamination'])
 
-            if not 'sample_storage_condition' in current_sample:
-                current_sample['sample_storage_condition'] = ''
-            storage_condition = str(current_sample['sample_storage_condition'])
+                if not 'sample_storage_condition' in current_sample:
+                    current_sample['sample_storage_condition'] = ''
+                storage_condition = str(current_sample['sample_storage_condition'])
 
-            if not 'biobank_id' in current_sample:
-                current_sample['biobank_id'] = ''
-            biobank_id = str(current_sample['biobank_id'])
+                if not 'biobank_id' in current_sample:
+                    current_sample['biobank_id'] = ''
+                biobank_id = str(current_sample['biobank_id'])
 
-            if not 'pn_id' in current_sample:
-                current_sample['pn_id'] = ''
-            pn_id = str(current_sample['pn_id'])
+                if not 'pn_id' in current_sample:
+                    current_sample['pn_id'] = ''
+                pn_id = str(current_sample['pn_id'])
 
-            # We create the tsv content
-            tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
-        tsv_path = '/user/cgs/cgs_'+request.user.username+'_vcf_import.tsv'
-        request.fs.create(tsv_path, overwrite=True, data=tsv_content)
+                # We create the tsv content
+                tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
+            tsv_path = '/user/cgs/cgs_'+request.user.username+'_vcf_import.tsv'
+            request.fs.create(tsv_path, overwrite=True, data=tsv_content)
+        except:
+            pass
 
         # We insert the data
         query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_vcf_import.tsv' into table clinical_sample;")
@@ -174,9 +178,9 @@ class VCFSerializer(serializers.Serializer):
 
         # We analyze the vcf, then insert the data inside hbase & impala. We don't wait for the import to finish to return the page
         result['text'] = 'The import started correctly and the data from the vcf should be available soon.'
-        thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
-        thr.start()
-        #import_of_vcf(request, filename, length)
+        #thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
+        #thr.start()
+        import_of_vcf(request, filename, length)
 
         if status == 'succeeded':
             result['status'] = 1
@@ -196,6 +200,9 @@ def import_of_vcf(request, filename, length):
     except Exception:
         return False
 
+    hbaseApi = HbaseApi(user=request.user)
+    currentCluster = hbaseApi.getClusters().pop()
+
     # To analyze the content of the vcf, we need to get it from the hdfs to this node
     buffer = min(length,1024*1024*512)
     tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
@@ -207,15 +214,23 @@ def import_of_vcf(request, filename, length):
 
     # Now we try to analyze the vcf a little bit more with the correct tool
     json_filename = tmp_filename+'.cgs.json'
+    st = time.time()
     convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
-    status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request)
+    status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request, initial_file=filename)
+    f = open('superhello.txt','w')
+    f.write('EXECUTION TIME to flat json:'+str(time.time()-st)+'\n')
+    f.close()
 
     # We put the output on hdfs
     json_size = os.path.getsize(json_filename)
-    buffer = min(json_size, 1024*1024*512)
+    buffer = min(json_size, 1024*1024*50)
+    st = time.time()
     with open(json_filename, 'r') as content_file:
         request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
         for offset in xrange(0, json_size, buffer):
+            ftmp = open('superhello.txt','a')
+            ftmp.write('Pushing flatjson to hdfs (/user/cgs/cgs_'+request.user.username+'_'+json_filename+')... '+str(time.time()-st)+'\n')
+            ftmp.close()
             request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=content_file.read(buffer))
 
     # We eventually modify the avsc file with the new calls

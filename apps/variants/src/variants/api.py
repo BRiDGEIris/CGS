@@ -243,7 +243,7 @@ class VariantDetail(APIView):
 
         """ For test only """
         data = {
-          "variantSetIds": ['0|cgs_import_cloudera.vcf'],
+          "variantSetIds": ['0|example2.vcf'],
           "variantName": '',
           "callSetIds": [],
           "referenceName": 19,

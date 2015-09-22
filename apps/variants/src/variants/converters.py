@@ -60,7 +60,7 @@ class formatConverters(object):
         Output file: %s
         Converting method""" % (self.input_type, self.output_type, self.converting_method))
 
-    def convertVcfToFlatJson(self, request, organization="ulb", analysis="0"):
+    def convertVcfToFlatJson(self, request, organization="ulb", analysis="0", initial_file="no-file.vcf"):
         """
             Convert a vcf file to a flat json file
             Check the doc: https://pyvcf.readthedocs.org/en/latest/API.html#vcf-model-call
@@ -88,6 +88,13 @@ class formatConverters(object):
                 linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
                 linedic['variants.alternateBases[]'] = []
                 linedic['variants.filters[]'] = []
+
+                # The most important thing to start with: check if the current sample has an alternate or not!
+                # This is almost mandatory, otherwise you create many sample with no alternate (for 1000genomes
+                # you create an enormous amount of data if you don't care about that -_-)
+                if not s.is_variant:
+                    # We are not fetching a variant, so we can skip the information...
+                    continue
 
                 # We get the data common for all the samples
                 if hasattr(s.data,'DP'):
@@ -162,11 +169,14 @@ class formatConverters(object):
                         linedic[mapping[pyvcf_parameter]] = value
 
                 # Some information we need to compute ourselves
-                linedic['variants.variantSetId'] = analysis+'|'+self.input_file
+                linedic['variants.variantSetId'] = analysis+'|'+initial_file
                 linedic['variants.calls[]']['callSetId'] = s.sample
+                linedic['variants.calls[]']['callSetName'] = s.sample
 
                 # We have to add the sample id for the current sample
                 linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
+
+                # TODO: Here you should annotate the variant with external databases inside variants.calls[].info{}!
 
                 if linedic['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
                     list_of_samples.append(linedic['variants.calls[]']['info{}']['sampleId'])
@@ -552,7 +562,7 @@ class formatConverters(object):
            'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
            'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'list'},
            'manual2':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
-           'todefine9':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
+           'manual3':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
            'Call.gt_bases':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
            'Call.phased':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
            'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28,'type':'list'},
@@ -832,6 +842,8 @@ def parquetToJson(raw_data):
                             if alt == genotype_call:
                                 call['genotype[]'] = [genotype_id]
                                 break
+                    elif genotype_call == mapped['variants.referenceBases']:
+                        call['genotype[]'] = [0]
                     else:
                         call['genotype[]'] = 'ERROR ('+genotype_call+')'
 
