@@ -163,6 +163,7 @@ class formatConverters(object):
 
                 # Some information we need to compute ourselves
                 linedic['variants.variantSetId'] = analysis+'|'+self.input_file
+                linedic['variants.calls[]']['callSetId'] = s.sample
 
                 # We have to add the sample id for the current sample
                 linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
@@ -550,7 +551,7 @@ class formatConverters(object):
            'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21,'type':'int'},
            'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
            'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'list'},
-           'todefine8':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
+           'manual2':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
            'todefine9':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
            'Call.gt_bases':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
            'Call.phased':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
