@@ -161,6 +161,9 @@ class formatConverters(object):
                     else:
                         linedic[mapping[pyvcf_parameter]] = value
 
+                # Some information we need to compute ourselves
+                linedic['variants.variantSetId'] = analysis+'|'+self.input_file
+
                 # We have to add the sample id for the current sample
                 linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
 
@@ -540,7 +543,7 @@ class formatConverters(object):
            'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16,'type':'string'},
 
             # The following terms should be correctly defined
-           'todefine1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
+           'manual1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
            'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18,'type':'string'}, # Ok
            'Call.sample2':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
            'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20,'type':'int'},

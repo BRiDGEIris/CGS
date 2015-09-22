@@ -22,7 +22,8 @@
 	{"name" : "R_FILTER","type" : "string","default" : "NA"},
 	{"name" : "R_SI","type" : "string","default" : "NA"},
 	{"name" : "R_REF","type" : "string","default" : "NA"},
-	{"name" : "R_C","type" : "string","default" : "NA"}
+	{"name" : "R_C","type" : "string","default" : "NA"},
+	{"name" : "R_VSI","type" : "string","default" : "NA"}
   	],
   "doc:" : "A schema to store variants"
 }
