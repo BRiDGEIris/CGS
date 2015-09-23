@@ -253,7 +253,7 @@ def import_of_vcf(request, filename, length):
 
         if destination_field not in existing_columns:
             # The current sample does not exist yet in the avsc file, we need to add it
-            call_schema = {"name":destination_field,"type":"string","doc":"Column for a specific sample","default":"NA"}
+            call_schema = {"name":destination_field,"type":["string","null"],"doc":"Column for a specific sample"}
             avro_schema['fields'].append(call_schema)
             existing_columns.append(destination_field)
             modified_avro_schema = True
@@ -270,30 +270,47 @@ def import_of_vcf(request, filename, length):
         request.fs.create('/user/cgs/cgs_variants.avsc', overwrite=True, data=json.dumps(avro_schema))
 
     # We convert the flat json to hbase (mostly a key mapping)
+    st = time.time()
     convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='jsonflat',output_type='hbase')
     status = convert.convertFlatJsonToHbase()
+    ftmp = open('superhello.txt','a')
+    ftmp.write('Conversion from flatjson to hbase... '+str(time.time()-st)+'\n')
+    ftmp.close()
 
     # We put the hbase file on hdfs
     hbase_length = os.path.getsize(json_filename+'.hbase')
-    buffer = min(hbase_length,1024*1024*512)
+    buffer = min(hbase_length,1024*1024*50)
+    st = time.time()
     with open(json_filename+'.hbase', 'r') as content_file:
         request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
         for offset in xrange(0, hbase_length, buffer):
             cont = content_file.read(buffer)
+            ftmp = open('superhello.txt','a')
+            ftmp.write('Pushing hbase to hdfs (/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase)... '+str(time.time()-st)+'\n')
+            ftmp.close()
             request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=cont)
 
     # We convert the hbase to avro file
+    st = time.time()
     convert = formatConverters(input_file=json_filename+'.hbase',output_file=json_filename+'.avro',input_type='jsonflat',output_type='avro')
     status = convert.convertHbaseToAvro(avscFile='variants.avsc')
 
+    ftmp = open('superhello.txt','a')
+    ftmp.write('Conversion from hbase to avro... '+str(time.time()-st)+'\n')
+    ftmp.close()
+
     # We put the avro file on hdfs
+    st = time.time()
     avro_length = os.path.getsize(json_filename+'.avro')
-    buffer = min(avro_length, 1024*1024*512)
+    buffer = min(avro_length, 1024*1024*50)
     with open(json_filename+'.avro', 'r') as content_file:
         request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
         request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data='')
         for offset in xrange(0, avro_length, buffer):
             cont = content_file.read(buffer)
+            ftmp = open('superhello.txt','a')
+            ftmp.write('Pushing avro to hdfs (/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro)... '+str(time.time()-st)+'\n')
+            ftmp.close()
             request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=cont)
             request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', data=cont)
 

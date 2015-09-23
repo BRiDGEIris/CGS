@@ -211,6 +211,7 @@ class formatConverters(object):
     def convertHbaseToAvro(self,avscFile = "", add_default=True, modify=True):
         """
             Convert an hbase json file to an avro file using AVSC for making the conversion
+            http://avro.apache.org/docs/1.7.6/gettingstartedpython.html
         """
 
         with open(avscFile,'r') as content_file:
@@ -231,31 +232,37 @@ class formatConverters(object):
             schema = avro.schema.parse(open(avscFile).read())
             writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
             h = open(self.input_file)
+            i = 0
+            st = time.time()
+            lines = []
             while 1: ## reading line per line in the flat json file and write them in the AVRO format
                 line = h.readline()
                 if not line:
                     break
                 ls = line.strip()
+                data = json.loads(ls)
 
                 if modify is True:
                     # We need to replace the ';' in the file to an '_'
-                    data = json.loads(ls)
                     modified_data = {}
                     for key in data:
                         modified_data[key.replace(':','_')] = data[key]
-                    ls = json.dumps(modified_data)
+                    data = modified_data
 
-                if add_default is True:
+                if add_default is True and False:
                     # We need to add ourselves the default values for each call even if the avsc file does contain a 'default' parameter :/.
-                    data = json.loads(ls)
                     for field_name in columns_lookup:
                         if field_name not in data:
                             data[field_name] = columns_lookup[field_name]
-                    ls = json.dumps(data)
 
+                i += 1
+                if i % 100 == 0:
+                    tmpf = open('superhello.txt','a')
+                    tmpf.write('Converter for line '+str(i)+': '+str(time.time()-st)+' > len dict: '+str(len(data))+'\n')
+                    tmpf.close()
                 # We finally write the avro file
-                writer.append(ast.literal_eval(ls))
-
+                #writer.append(ast.literal_eval(ls))
+                writer.append(data)
             h.close()
             writer.close()
             status = "succeeded"
