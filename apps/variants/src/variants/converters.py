@@ -85,38 +85,41 @@ class formatConverters(object):
         for record in vcf_reader:
             linedic = {}
 
+            # We initialize the flat json (the specific name for the call column for each sample will be computed below)
+            linedic['variants.alternateBases[]'] = []
+            linedic['variants.filters[]'] = []
+
+            if isinstance(record.FILTER, list):
+                linedic['variants.filters[]'] = record.FILTER
+
             for s in record.samples:
-                # We initialize the flat json (the specific name for the call column for each sample will be computed below)
-                linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
-                linedic['variants.alternateBases[]'] = []
-                linedic['variants.filters[]'] = []
 
                 # The most important thing to start with: check if the current sample has an alternate or not!
-                # This is almost mandatory, otherwise you create many sample with no alternate (for 1000genomes
+                # This is almost mandatory, otherwise you create many samples with no alternate (for 1000genomes
                 # you create an enormous amount of data if you don't care about that -_-)
                 if not s.is_variant:
                     # We are not fetching a variant, so we can skip the information...
                     continue
 
-                # We get the data common for all the samples
-                if hasattr(s.data,'DP'):
-                    linedic['variants.calls[]']['info{}']['read_depth'] = s.data.DP
-                else:
-                    linedic['variants.calls[]']['info{}']['read_depth'] = "NA"
+                linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
 
-
-                if len(uniqueInList(linedic['variants.calls[]']['genotype[]'])) > 1:
-                    call_het = "Heterozygous"
-                else:
-                    call_het = "Homozygous"
                 if isinstance(record.ALT, list):
                     linedic['variants.alternateBases[]'] = '|'.join([str(a) for a in record.ALT])
                     linedic['variants.calls[]']['genotype[]'] = '|'.join([str(a) for a in record.ALT])
                 else:
                     linedic['variants.calls[]']['genotype[]'] = ["Error..."]
 
-                if isinstance(record.FILTER, list):
-                    linedic['variants.filters[]'] = record.FILTER
+                if len(uniqueInList(linedic['variants.calls[]']['genotype[]'])) > 1:
+                    call_het = "Heterozygous"
+                else:
+                    call_het = "Homozygous"
+
+                # We get the common data for all the samples
+                if hasattr(s.data,'DP'):
+                    linedic['variants.calls[]']['info{}']['read_depth'] = s.data.DP
+                else:
+                    linedic['variants.calls[]']['info{}']['read_depth'] = "NA"
+                linedic['variants.variantSetId'] = analysis+'|'+initial_file
 
                 # Now we map each additional data depending on the configuration
                 for pyvcf_parameter in mapping:
@@ -171,7 +174,6 @@ class formatConverters(object):
                         linedic[mapping[pyvcf_parameter]] = value
 
                 # Some information we need to compute ourselves
-                linedic['variants.variantSetId'] = analysis+'|'+initial_file
                 linedic['variants.calls[]']['callSetId'] = s.sample
                 linedic['variants.calls[]']['callSetName'] = s.sample
 
@@ -187,23 +189,23 @@ class formatConverters(object):
                 # and the current sample id
                 rowkey = organization + '|' + analysis + '|' + linedic['variants.referenceName'] + '|' + linedic['variants.start'] + '|' + linedic['variants.referenceBases'] + '|' + linedic['variants.alternateBases[]'][0]
                 linedic['variants.id'] = rowkey
-                linedic['variants.calls[].'+rowkey] = json.dumps(linedic['variants.calls[]'])
+                linedic['variants.calls[].'+s.sample] = json.dumps(linedic['variants.calls[]'])
                 del linedic['variants.calls[]']
                 if rowkey not in list_of_rowkeys:
                     list_of_rowkeys.append(rowkey)
 
-                # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
-                for jsonkey in linedic:
-                    if type(linedic[jsonkey]) is list:
-                        if len(linedic[jsonkey]) > 0 :
-                            linedic[jsonkey] = '|'.join(linedic[jsonkey])
-                    elif type(linedic[jsonkey]) is dict:
-                        linedic[jsonkey] = json.dumps(linedic[jsonkey])
+            # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
+            for jsonkey in linedic:
+                if type(linedic[jsonkey]) is list:
+                    if len(linedic[jsonkey]) > 0 :
+                        linedic[jsonkey] = '|'.join(linedic[jsonkey])
+                elif type(linedic[jsonkey]) is dict:
+                    linedic[jsonkey] = json.dumps(linedic[jsonkey])
 
-                    if jsonkey not in list_of_columns:
-                        list_of_columns.append(jsonkey)
+                if jsonkey not in list_of_columns:
+                    list_of_columns.append(jsonkey)
 
-                o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
+            o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
         o.close()
         f.close()
 
