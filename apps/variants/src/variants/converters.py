@@ -236,7 +236,7 @@ class formatConverters(object):
             raise ValueError(msg)
         else:
             schema = avro.schema.parse(open(avscFile).read())
-            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema, codec="snappy")
+            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
             h = open(self.input_file)
             i = 0
             st = time.time()

@@ -261,11 +261,6 @@ def import_of_vcf(request, filename, length):
             modified_avro_schema = True
 
     if modified_avro_schema is True:
-        # We need to save the new schema, first we save the old version, then we modify the current one
-        with open('variants.avsc','r') as content_file:
-            with open('variants.'+str(time.time())+'.avsc', 'w') as archive_file:
-                archive_file.write(content_file.read())
-
         with open('variants.avsc','w') as content_file:
             content_file.write(json.dumps(avro_schema))
 
