@@ -24,7 +24,8 @@ class VCFSerializer(serializers.Serializer):
             Insert a new vcf file inside the database
         """
         result = {'status': -1,'data': {}}
-
+        tmpf = open('superhello.txt','w')
+        tmpf.close()
         # We take the files in the current user directory
         init_path = directory_current_user(request)
         files = list_directory_content(request, init_path, ".vcf", True)
@@ -169,12 +170,13 @@ class VCFSerializer(serializers.Serializer):
                 tsv_content += sample_id + ','+ patient_id + ',' +date_of_collection+','+original_sample_id+','+status+','+sample_type+','+biological_contamination+','+storage_condition+','+biobank_id+','+pn_id+'\r\n'
             tsv_path = '/user/cgs/cgs_'+request.user.username+'_vcf_import.tsv'
             request.fs.create(tsv_path, overwrite=True, data=tsv_content)
+
+            # We insert the data
+            query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_vcf_import.tsv' into table clinical_sample;")
+            handle = db.execute_and_wait(query, timeout_sec=30.0)
+
         except:
             pass
-
-        # We insert the data
-        query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_vcf_import.tsv' into table clinical_sample;")
-        handle = db.execute_and_wait(query, timeout_sec=30.0)
 
         # We analyze the vcf, then insert the data inside hbase & impala. We don't wait for the import to finish to return the page
         result['text'] = 'The import started correctly and the data from the vcf should be available soon.'
@@ -377,6 +379,15 @@ def import_of_vcf(request, filename, length):
     # We put the data in HBase. For now we do it simply, but we should use the bulk upload (TODO)
     with open(json_filename+'.hbase', 'r') as content_file:
         for line in content_file:
+            # We create the json content
+            hbase_data = json.loads(line)
+            rowkey = hbase_data['rowkey']
+            del hbase_data['rowkey']
+            del hbase_data['pk']
+
+            # We can save the new variant
+            hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
+            """
             try:
                 # We create the json content
                 hbase_data = json.loads(line)
@@ -389,7 +400,7 @@ def import_of_vcf(request, filename, length):
             except Exception as e:
                 fprint("Error while reading the HBase json file")
                 tmpf.write('Error ('+str(e.message)+'):/.')
-
+            """
     tmpf.close()
 
     # We delete the temporary file previously created on this node

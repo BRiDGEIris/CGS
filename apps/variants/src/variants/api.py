@@ -242,17 +242,18 @@ class VariantDetail(APIView):
         data = request.data
 
         """ For test only """
-        data = {
-          "variantSetIds": ['0|example2.vcf'],
-          "variantName": '',
-          "callSetIds": [],
-          "referenceName": 19,
-          "start": 1,
-          "end": 0, # Not supported (TODO: add this field in the rowkey?)
-          "pageToken": '',
-          "pageSize": 5000, # Not supported, but should be very big for the moment
-          "maxCalls": 5000 # Not supported
-        }
+        if len(data) == 0:
+            data = {
+              "variantSetIds": ['0|tiny_sample.vcf'],
+              "variantName": '',
+              "callSetIds": [],
+              "referenceName": 1,
+              "start": 1,
+              "end": 0, # Not supported (TODO: add this field in the rowkey?)
+              "pageToken": '',
+              "pageSize": 5000, # Not supported, but should be very big for the moment
+              "maxCalls": 5000 # Not supported
+            }
 
         """ End test """
 

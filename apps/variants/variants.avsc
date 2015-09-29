@@ -23,7 +23,8 @@
 	{"name" : "R_SI","type" : ["string", "null"],"default" : "NA"},
 	{"name" : "R_REF","type" : ["string", "null"],"default" : "NA"},
 	{"name" : "R_C","type" : ["string", "null"],"default" : "NA"},
-	{"name" : "R_VSI","type" : ["string", "null"],"default" : "NA"}
+	{"name" : "R_VSI","type" : ["string", "null"],"default" : "NA"},
+	{"name" : "I_AN","type" : ["string", "null"],"default" : "NA"}
   	],
   "doc:" : "A schema to store variants"
 }

@@ -19,6 +19,7 @@ from beeswax.server.dbms import get_query_server_config
 from subprocess import *
 import json
 import time
+from hbase.api import HbaseApi
 
 class formatConverters(object):
     """
@@ -80,6 +81,7 @@ class formatConverters(object):
         list_of_columns = []
         list_of_samples = []
         vcf_reader = vcf.Reader(f)
+
         for record in vcf_reader:
             linedic = {}
 
@@ -221,16 +223,18 @@ class formatConverters(object):
             if 'default' in field:
                 columns_lookup[field['name']] = field['default']
             else:
-                columns_lookup[field['name']] = 'NONE'
+                columns_lookup[field['name']] = 'null'
+
+        for_java = False
 
         status = "failed"
-
+        supertmp = open('variants.hbase','w')
         if avscFile == "":
             msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
             raise ValueError(msg)
         else:
             schema = avro.schema.parse(open(avscFile).read())
-            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
+            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema, codec="snappy")
             h = open(self.input_file)
             i = 0
             st = time.time()
@@ -249,11 +253,24 @@ class formatConverters(object):
                         modified_data[key.replace(':','_')] = data[key]
                     data = modified_data
 
-                if add_default is True and False:
-                    # We need to add ourselves the default values for each call even if the avsc file does contain a 'default' parameter :/.
+                if for_java is True:
+                    # We need to modify the type for the java tool: avro-tools-1.7.7.jar
+                    for key in data:
+                        if isinstance(data[key], (int, long)):
+                            data[key] = {"int":data[key]}
+                        else:
+                            data[key] = {"string":data[key]}
+
+                    # We add the missing columns for each call
                     for field_name in columns_lookup:
                         if field_name not in data:
-                            data[field_name] = columns_lookup[field_name]
+                            if columns_lookup[field_name] == 'null':
+                                data[field_name] = columns_lookup[field_name]
+                            elif isinstance(columns_lookup[field_name], (int, long)):
+                                data[field_name] = {'int':columns_lookup[field_name]}
+                            else:
+                                data[field_name] = {'string':columns_lookup[field_name]}
+
 
                 i += 1
                 if i % 100 == 0:
@@ -261,11 +278,12 @@ class formatConverters(object):
                     tmpf.write('Converter for line '+str(i)+': '+str(time.time()-st)+' > len dict: '+str(len(data))+'\n')
                     tmpf.close()
                 # We finally write the avro file
-                #writer.append(ast.literal_eval(ls))
                 writer.append(data)
+                #supertmp.write(json.dumps(data)+'\n')
             h.close()
             writer.close()
             status = "succeeded"
+        supertmp.close()
         return(status)
 
         ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file
