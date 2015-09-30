@@ -180,7 +180,12 @@ class formatConverters(object):
                 # We have to add the sample id for the current sample
                 linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
 
-                # TODO: Here you should annotate the variant with external databases inside variants.calls[].info{}!
+                """
+                    TODO: Here you should annotate the variant with external databases, but not inside variants.calls[].info{}!
+                    as we want to be able to have filters on those fields after. But the problem is that some
+                    annotations depend on the alternates... So it would be very complicate...
+                    BUT: the alternate is directly in the rowkey! So no big problem thanks to that.
+                """
 
                 if linedic['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
                     list_of_samples.append(linedic['variants.calls[]']['info{}']['sampleId'])
@@ -272,7 +277,6 @@ class formatConverters(object):
                                 data[field_name] = {'int':columns_lookup[field_name]}
                             else:
                                 data[field_name] = {'string':columns_lookup[field_name]}
-
 
                 i += 1
                 if i % 100 == 0:

@@ -71,7 +71,7 @@ def sample_insert_interface(request):
     samples_quantity = 0
 
     # We take the file received
-    if 'vcf' in request.GET:
+    if 'vcf' in request.GET and 'type' in request.GET:
         filename = request.GET['vcf']
     else:
         error_get = True
@@ -103,9 +103,13 @@ def sample_insert_interface(request):
     # We also receive the different files previously uploaded by the user
     questions, q, files = sample_insert_questions(request)
 
-    if request.method == 'POST':
+    if request.method == 'POST' or request.GET['type'] == 'Import directly':
         # Now we save the result
         fprint(str(request.POST))
+        if request.GET['type'] == 'Import directly':
+            request.method = 'POST'
+            request.POST = {'vcf_data':''}
+
         result = sample_insert(request)
         result = json_to_dict(result)
 

@@ -35,7 +35,8 @@ ${shared.menubar(section='sample')}
                         <option value="${value}" selected>${value}</option>
                     % endfor
                 </select><br/>
-                <input type="submit" value="Add data to file" />
+                <input type="submit" name="type" value="Add data to the samples" /><br/>
+                <input type="submit" name="type" value="Import directly" /><br/>
             </form>
         % else:
             No .vcf file were found in your directory.

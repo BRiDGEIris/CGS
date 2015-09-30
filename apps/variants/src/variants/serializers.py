@@ -340,6 +340,7 @@ def import_of_vcf(request, filename, length):
     tmpf.close()
 
     # 1st: we create a temporary hive table with avro storage
+    st = time.time()
     result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
 
     tmpf = open('superhello.txt','a')
@@ -369,8 +370,11 @@ def import_of_vcf(request, filename, length):
     # 5th: we delete the temporary table
     #query = hql_query("drop table variants_tmp_"+request.user.username+";")
     #handle = hive_db.execute_and_wait(query, timeout_sec=30.0)
+    ftmp = open('superhello.txt','a')
+    ftmp.write('Creation of temporary table, import to global variants table (parquet): '+str(time.time()-st)+'\n')
+    ftmp.close()
 
-
+    st = time.time()
     # We put the data in HBase. For now we do it simply, but we should use the bulk upload (TODO)
     with open(json_filename+'.hbase', 'r') as content_file:
         for line in content_file:
@@ -396,7 +400,9 @@ def import_of_vcf(request, filename, length):
                 fprint("Error while reading the HBase json file")
                 tmpf.write('Error ('+str(e.message)+'):/.')
             """
-    tmpf.close()
+    ftmp = open('superhello.txt','a')
+    ftmp.write('Import into HBase: '+str(time.time()-st)+'\n')
+    ftmp.close()
 
     # We delete the temporary file previously created on this node
     os.remove(tmp_filename)
