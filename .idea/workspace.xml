@@ -4,8 +4,7 @@
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" afterPath="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/views.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/views.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/variants.avsc" afterPath="$PROJECT_DIR$/apps/variants/variants.avsc" />
     </list>
     <ignored path="cgs-apps.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -25,14 +24,14 @@
     <favorites_list name="cgs-apps" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.590661">
+    <splitter split-orientation="horizontal" split-proportion="0.53691673">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file leaf-file-name="views.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="views.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.48966408">
-                  <caret line="110" column="41" selection-start-line="110" selection-start-column="41" selection-end-line="110" selection-end-column="41" />
+                <state vertical-scroll-proportion="-55.485714">
+                  <caret line="152" column="28" selection-start-line="152" selection-start-column="4" selection-end-line="152" selection-end-column="28" />
                   <folding>
                     <element signature="e#23#65#0" expanded="true" />
                   </folding>
@@ -70,11 +69,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="serializers.py" pinned="false" current-in-tab="false">
+          <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-10.685715">
-                  <caret line="34" column="30" selection-start-line="34" selection-start-column="30" selection-end-line="34" selection-end-column="30" />
+                <state vertical-scroll-proportion="0.2763496">
+                  <caret line="184" column="9" selection-start-line="184" selection-start-column="9" selection-end-line="184" selection-end-column="9" />
                   <folding>
                     <element signature="e#0#38#0" expanded="true" />
                   </folding>
@@ -85,21 +84,9 @@
           <file leaf-file-name="api.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.0">
+                <state vertical-scroll-proportion="48.17143">
                   <caret line="227" column="50" selection-start-line="227" selection-start-column="50" selection-end-line="227" selection-end-column="50" />
                   <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.0">
-                  <caret line="274" column="70" selection-start-line="274" selection-start-column="70" selection-end-line="274" selection-end-column="70" />
-                  <folding>
-                    <element signature="e#0#13#0" expanded="true" />
-                  </folding>
                 </state>
               </provider>
             </entry>
@@ -114,6 +101,18 @@
               </provider>
             </entry>
           </file>
+          <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="-135.08571">
+                  <caret line="743" column="44" selection-start-line="743" selection-start-column="44" selection-end-line="743" selection-end-column="44" />
+                  <folding>
+                    <element signature="e#0#13#0" expanded="true" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
         </leaf>
       </split-first>
       <split-second>
@@ -121,8 +120,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.07751938">
-                  <caret line="164" column="0" selection-start-line="163" selection-start-column="0" selection-end-line="164" selection-end-column="0" />
+                <state vertical-scroll-proportion="0.33290488">
+                  <caret line="491" column="101" selection-start-line="491" selection-start-column="101" selection-end-line="491" selection-end-column="101" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -153,17 +152,18 @@
         <option value="$PROJECT_DIR$/apps/variants/src/variants/urls.py" />
         <option value="$PROJECT_DIR$/installCGSapps.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/api.py" />
-        <option value="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
-        <option value="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako" />
         <option value="$PROJECT_DIR$/apps/variants/src/variants/views.py" />
+        <option value="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
+        <option value="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
+    <option name="x" value="-2" />
     <option name="y" value="25" />
-    <option name="width" value="1917" />
-    <option name="height" value="936" />
+    <option name="width" value="1924" />
+    <option name="height" value="940" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
     <OptionsSetting value="true" id="Add" />
@@ -567,10 +567,10 @@
   </component>
   <component name="ShelveChangesManager" show_recycled="false" />
   <component name="ToolWindowManager">
-    <frame x="0" y="25" width="1917" height="936" extended-state="0" />
+    <frame x="-2" y="25" width="1924" height="940" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.12843552" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.108478144" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32947233" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
@@ -614,14 +614,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="37" column="79" selection-start-line="37" selection-start-column="79" selection-end-line="37" selection-end-column="79" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.insert.interface.mako">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
@@ -638,9 +630,17 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/templates/sample.index.interface.mako">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
+          <caret line="37" column="79" selection-start-line="37" selection-start-column="79" selection-end-line="37" selection-end-column="79" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/api.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="48.17143">
           <caret line="227" column="50" selection-start-line="227" selection-start-column="50" selection-end-line="227" selection-end-column="50" />
           <folding />
         </state>
@@ -648,30 +648,30 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="274" column="70" selection-start-line="274" selection-start-column="70" selection-end-line="274" selection-end-column="70" />
+        <state vertical-scroll-proportion="-135.08571">
+          <caret line="743" column="44" selection-start-line="743" selection-start-column="44" selection-end-line="743" selection-end-column="44" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-10.685715">
-          <caret line="34" column="30" selection-start-line="34" selection-start-column="30" selection-end-line="34" selection-end-column="30" />
+        <state vertical-scroll-proportion="-55.485714">
+          <caret line="152" column="28" selection-start-line="152" selection-start-column="4" selection-end-line="152" selection-end-column="28" />
           <folding>
-            <element signature="e#0#38#0" expanded="true" />
+            <element signature="e#23#65#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.48966408">
-          <caret line="110" column="41" selection-start-line="110" selection-start-column="41" selection-end-line="110" selection-end-column="41" />
+        <state vertical-scroll-proportion="0.2763496">
+          <caret line="184" column="9" selection-start-line="184" selection-start-column="9" selection-end-line="184" selection-end-column="9" />
           <folding>
-            <element signature="e#23#65#0" expanded="true" />
+            <element signature="e#0#38#0" expanded="true" />
           </folding>
         </state>
       </provider>

@@ -164,7 +164,7 @@ class formatConverters(object):
                     elif mapping[pyvcf_parameter] == 'variants.calls[].genotype[]':
                         linedic['variants.calls[]']['genotype[]'] = linedic['variants.alternateBases[]']
                     elif mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
-                        tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}')
+                        tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}.')
                         linedic['variants.calls[]']['info{}'][tmp[1]] = value
                     elif mapping[pyvcf_parameter].startswith('variants.calls[].'):
                         tmp = mapping[pyvcf_parameter].split('variants.calls[].')
@@ -232,8 +232,6 @@ class formatConverters(object):
             else:
                 columns_lookup[field['name']] = 'null'
 
-        for_java = False
-
         status = "failed"
         supertmp = open('variants.hbase','w')
         if avscFile == "":
@@ -259,24 +257,6 @@ class formatConverters(object):
                     for key in data:
                         modified_data[key.replace(':','_')] = data[key]
                     data = modified_data
-
-                if for_java is True:
-                    # We need to modify the type for the java tool: avro-tools-1.7.7.jar
-                    for key in data:
-                        if isinstance(data[key], (int, long)):
-                            data[key] = {"int":data[key]}
-                        else:
-                            data[key] = {"string":data[key]}
-
-                    # We add the missing columns for each call
-                    for field_name in columns_lookup:
-                        if field_name not in data:
-                            if columns_lookup[field_name] == 'null':
-                                data[field_name] = columns_lookup[field_name]
-                            elif isinstance(columns_lookup[field_name], (int, long)):
-                                data[field_name] = {'int':columns_lookup[field_name]}
-                            else:
-                                data[field_name] = {'string':columns_lookup[field_name]}
 
                 i += 1
                 if i % 100 == 0:
@@ -327,11 +307,21 @@ class formatConverters(object):
                 else:
                     hbase_key = json_to_hbase[attribute]
 
-                if attribute in types and types[attribute] == 'int':
-                    try:
-                        output_line[hbase_key] = int(variant[attribute])
-                    except:
-                        output_line[hbase_key] = 0
+                if attribute in types:
+                    if types[attribute] == 'int':
+                        try:
+                            output_line[hbase_key] = int(variant[attribute])
+                        except:
+                            output_line[hbase_key] = 0
+                    elif types[attribute] == 'float' or types[attribute] == 'double':
+                        try:
+                            output_line[hbase_key] = float(variant[attribute])
+                        except:
+                            output_line[hbase_key] = 0.0
+                    elif types[attribute] == 'boolean':
+                        output_line[hbase_key] = (variant[attribute] == "1" or variant[attribute] == 1 or variant[attribute] == True or variant[attribute] == "true" or variant[attribute] == "True")
+                    else:
+                        output_line[hbase_key] = str(variant[attribute])
                 else:
                     output_line[hbase_key] = str(variant[attribute])
 
@@ -437,8 +427,10 @@ class formatConverters(object):
         mapping = self.getMapping()
 
         new_mapping = {}
+        i = 0
         for key in mapping:
-            new_mapping[mapping[key]['json']] = mapping[key]['parquet']
+            new_mapping[mapping[key]['json']] = i
+            i += 1
 
         return new_mapping
 
@@ -448,8 +440,10 @@ class formatConverters(object):
         mapping = self.getMapping()
 
         new_mapping = {}
+        i = 0
         for key in mapping:
-            new_mapping[key] = mapping[key]['parquet']
+            new_mapping[key] = i
+            i += 1
 
         return new_mapping
 
@@ -489,37 +483,159 @@ class formatConverters(object):
         # DO NOT change the 'json' fields...
 
         mapping = {
-        'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','parquet':1,'type':'string'},
-           'Record.POS':{'json':'variants.start','hbase':'R.P','parquet':2,'type':'int'},
-           'Record.REF':{'json':'variants.referenceBases','hbase':'R.REF','parquet':3,'type':'string'},
-           'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','parquet':4,'type':'list'},
-           'Record.ID':{'json':'variants.info.dbsnp_id','hbase':'I.DBSNP137','parquet':5,'type':'string'},
-           'Record.FILTER':{'json':'variants.filters[]','hbase':'R.FILTER','parquet':6,'type':'list'},
-           'Record.QUAL':{'json':'variants.quality','hbase':'R.QUAL','parquet':7,'type':'float'},
-           'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I.QD','parquet':8,'type':'string'},
-           'Record.INFO.HRun':{'json':'variants.info.largest_homopolymer','hbase':'I.HR','parquet':9,'type':'string'},
-           'Record.INFO.SB':{'json':'variants.strand_bias','hbase':'I.SB','parquet':10,'type':'string'},
-           'Record.INFO.DP':{'json':'variants.calls[].info.read_depth','hbase':'F.DPF','parquet':11,'type':'string'},
-           'Record.INFO.MQ0':{'json':'variants.info.mapping_quality_zero_read','hbase':'I.MQ0','parquet':12,'type':'string'},
-           'Record.INFO.DS':{'json':'variants.info.downsampled','hbase':'I.DS','parquet':13,'type':'string'},
-           'Record.INFO.AN':{'json':'variants.info.allele_num','hbase':'I.AN','parquet':14,'type':'string'},
-           'Record.INFO.AD':{'json':'variants.calls[].info.confidence_by_depth','hbase':'F.AD','parquet':15,'type':'string'},
-           'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','parquet':16,'type':'string'},
+            'Record.CHROM':{'json':'variants.referenceName','hbase':'R.C','type':'string'},
+            'Record.POS':{'json':'variants.start','hbase':'R.P','type':'int'},
+            'Record.REF':{'json':'variants.referenceBases','hbase':'R.REF','type':'string'},
+            'Record.ALT':{'json':'variants.alternateBases[]','hbase':'R.ALT','type':'list'},
+            'Record.FILTER':{'json':'variants.filters[]','hbase':'R.FILTER','type':'list'},
+            'Record.QUAL':{'json':'variants.quality','hbase':'R.QUAL','type':'float'},
+            'Record.INFO.QD':{'json':'variants.info.confidence_by_depth','hbase':'I.QD','type':'float'},
+            'Record.INFO.SB':{'json':'variants.strand_bias','hbase':'I.SB','type':'float'},
+            'Record.INFO.AD':{'json':'variants.calls[].info.confidence_by_depth','hbase':'F.AD','type':'string'},
+            'Call.sample':{'json':'readGroupSets.readGroups.sampleID','hbase':'R.SI','type':'string'},
 
-            # The following terms should be correctly defined
-           'manual1':{'json':'variants.variantSetId','hbase':'R.VSI','parquet':17,'type':'string'},
-           'todefine2':{'json':'variants.id','hbase':'R.ID','parquet':18,'type':'string'}, # Ok
-           'Call.sample2':{'json':'variants.names[]','hbase':'R.NAMES','parquet':19,'type':'list'},
-           'todefine4':{'json':'variants.created','hbase':'R.CREATED','parquet':20,'type':'int'},
-           'todefine5':{'json':'variants.end','hbase':'R.PEND','parquet':21,'type':'int'},
-           'todefine6':{'json':'variants.info{}','hbase':'R.INFO','parquet':22,'type':'dict'},
-           'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','parquet':23,'type':'list'},
-           'manual2':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','parquet':24,'type':'string'},
-           'manual3':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','parquet':25,'type':'string'},
-           'Call.gt_bases':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','parquet':26,'type':'list'},
-           'Call.phased':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','parquet':27,'type':'string'},
-           'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','parquet':28,'type':'list'},
-           'todefine13':{'json':'variants.calls[].info{}','hbase':'R.CALLS_INFO','parquet':29,'type':'dict'},
+            'manual1':{'json':'variants.variantSetId','hbase':'R.VSI','type':'string'},
+            'todefine2':{'json':'variants.id','hbase':'R.ID','type':'string'}, # Ok
+            'Call.sample2':{'json':'variants.names[]','hbase':'R.NAMES','type':'list'},
+            'todefine4':{'json':'variants.created','hbase':'R.CREATED','type':'int'},
+            'todefine5':{'json':'variants.end','hbase':'R.PEND','type':'int'},
+            'todefine6':{'json':'variants.info{}','hbase':'R.INFO','type':'dict'},
+            'todefine7':{'json':'variants.calls[]','hbase':'R.CALLS','type':'list'},
+            'manual2':{'json':'variants.calls[].callSetId','hbase':'R.CALLS_ID','type':'string'},
+            'manual3':{'json':'variants.calls[].callSetName','hbase':'R.CALLS_NAME','type':'string'},
+            'Call.gt_bases':{'json':'variants.calls[].genotype[]','hbase':'R.CALLS_GT','type':'list'},
+            'Call.phased':{'json':'variants.calls[].phaseset','hbase':'R.CALLS_PS','type':'string'},
+            'todefine12':{'json':'variants.calls[].genotypeLikelihood[]','hbase':'R.CALLS_LHOOD','type':'list'},
+            'todefine13':{'json':'variants.calls[].info{}','hbase':'R.CALLS_INFO','type':'dict'},
+
+            'o1':{'json':'variants.info{}.change_type','hbase':'I.CT','type':'string'},
+            'o2':{'json':'variants.info{}.cdna_length','hbase':'I.CDNAL','type':'int'},
+            'o3':{'json':'variants.info{}.gene_symbol','hbase':'R.GS','type':'string'},
+            'o4':{'json':'variants.info{}.gene_ensembl','hbase':'R.GIE','type':'string'},
+            'o5':{'json':'variants.info{}.number_genes','hbase':'I.NG','type':'int'},
+            'o6':{'json':'variants.info{}.biotype','hbase':'I.BIOT','type':'string'},
+            'o7':{'json':'variants.info{}.transcript_ensembl','hbase':'I.TRE','type':'string'},
+            'o7b':{'json':'variants.info{}.transcript_uniprot_id','hbase':'I.TRUID','type':'string'},
+            'o8':{'json':'variants.info{}.transcript_uniprot_acc','hbase':'I.TRUAC','type':'string'},
+            'o9':{'json':'variants.info{}.transcript_refseq_prot','hbase':'I.TRRP','type':'string'},
+            'o10':{'json':'variants.info{}.transcript_refseq_mrna','hbase':'I.TRRM','type':'string'},
+            'Record.ID':{'json':'variants.info{}.dbnsp_id','hbase':'I.DBSNP137','type':'string'},
+            'o12':{'json':'variants.info{}.unisnp_id','hbase':'I.UNID','type':'string'},
+            'o13':{'json':'variants.info{}.exon_intron_total','hbase':'I.EIT','type':'int'},
+            'Record.INFO.HRun':{'json':'variants.info{}.largest_homopolymer','hbase':'I.HR','type':'int'},
+            'Record.INFO.DP':{'json':'variants.calls[].info{}.read_depth','hbase':'F.DPF','type':'int'},
+            'Record.INFO.MQ0':{'json':'variants.info{}.mapping_quality_zero_read','hbase':'I.MQ0','type':'float'},
+            'Record.INFO.DS':{'json':'variants.info{}.downsampled','hbase':'I.DS','type':'boolean'},
+            'Record.INFO.AN':{'json':'variants.info{}.allele_num','hbase':'I.AN','type':'int'},
+            'o21':{'json':'variants.calls[].info{}.confidence_by_depth_ref','hbase':'F.ADREF','type':'int'},
+            'o22':{'json':'variants.calls[].info{}.confidence_by_depth_alt','hbase':'F.ADALT','type':'int'},
+            'o23':{'json':'variants.calls[].info{}.allelic_depth_proportion_ref','hbase':'F.ADPR','type':'float'},
+            'o24':{'json':'variants.calls[].info{}.allelic_depth_proportion_alt','hbase':'F.ADPA','type':'float'},
+            'o25':{'json':'variants.calls[].info{}.zygosity','hbase':'F.ZYG','type':'string'},
+            'o26':{'json':'variants.calls[].info{}.genotype_quality','hbase':'F.GQ','type':'float'},
+            'o27':{'json':'variants.calls[].info{}.genotype_likelihood_hom_ref','hbase':'F.GLHR','type':'float'},
+            'o28':{'json':'variants.calls[].info{}.genotype_likelihood_het','hbase':'F.GLH','type':'float'},
+            'o29':{'json':'variants.calls[].info{}.genotype_likelihood_hom_alt','hbase':'F.GLHA','type':'float'},
+            'o30':{'json':'variants.info{}.snpeff_effect','hbase':'I.SNPE','type':'string'},
+            'o31':{'json':'variants.info{}.snpeff_impact','hbase':'I.SNPI','type':'string'},
+            'o32':{'json':'variants.info{}.sift_score','hbase':'I.SIFTS','type':'float'},
+            'o33':{'json':'variants.info{}.sift_pred','hbase':'I.SIFTP','type':'string'},
+            'o34':{'json':'variants.info{}.pph2_hdiv_score','hbase':'I.PHS','type':'double'},
+            'o35':{'json':'variants.info{}.pph2_hdiv_pred','hbase':'I.PHP','type':'string'},
+            'o36':{'json':'variants.info{}.pph2_hvar_score','hbase':'I.PVS','type':'double'},
+            'o37':{'json':'variants.info{}.pph2_hvar_pred','hbase':'I.PVP','type':'string'},
+            'o38':{'json':'variants.info{}.lrt_score','hbase':'I.LRTS','type':'double'},
+            'o38b':{'json':'variants.info{}.lrt_pred','hbase':'I.LRTP','type':'string'},
+            'o39':{'json':'variants.info{}.mutation_taster_score','hbase':'I.MTS','type':'double'},
+            'o40':{'json':'variants.info{}.mutation_taster_pred','hbase':'I.MTP','type':'string'},
+            'o41':{'json':'variants.info{}.mutation_assessor_score','hbase':'I.MAS','type':'double'},
+            'o42':{'json':'variants.info{}.mutation_assessor_pred','hbase':'I.MAP','type':'string'},
+            'o43':{'json':'variants.info{}.consensus_prediction','hbase':'I.CP','type':'int'},
+            'o44':{'json':'variants.info{}.other_effects','hbase':'I.ANN','type':'boolean'},
+            'o45':{'json':'variants.info{}.gerp_nr','hbase':'I.GENR','type':'double'},
+            'o46':{'json':'variants.info{}.gerp_rs','hbase':'I.GERS','type':'double'},
+            'o47':{'json':'variants.info{}.siphy_29way_pi','hbase':'I.S2PI','type':'string'},
+            'o48':{'json':'variants.info{}.siphy_29way_log_odds','hbase':'I.S2LO','type':'double'},
+            'o49':{'json':'variants.info{}.1000G_AC','hbase':'I.AC1000G','type':'int'},
+            'o50':{'json':'variants.info{}.1000G_AF','hbase':'I.AF1000G','type':'double'},
+            'o51':{'json':'variants.info{}.ESP6500_AA_AF','hbase':'I.EAAF','type':'double'},
+            'o52':{'json':'variants.info{}.ESP6500_EA_AF','hbase':'I.EEAF','type':'double'},
+            'o53':{'json':'variants.info{}.lof_tolerant_or_recessive_gene','hbase':'I.LOF','type':'string'},
+            'o54':{'json':'variants.info{}.rank_sum_test_base_qual','hbase':'I.RBQ','type':'double'},
+            'o55':{'json':'variants.info{}.rank_sum_test_read_mapping_qual','hbase':'I.RRMQ','type':'double'},
+            'o56':{'json':'variants.info{}.rank_sum_test_read_pos_bias','hbase':'I.RPB','type':'double'},
+            'o57':{'json':'variants.info{}.haplotype_score','hbase':'I.HS','type':'double'},
+            'o58':{'json':'variants.info{}.found_in_exomes_haplotype_caller','hbase':'I.FEHC','type':'boolean'},
+            'o59':{'json':'variants.info{}.found_in_exomes_lifescope','hbase':'I.FEL','type':'boolean'},
+            'o60':{'json':'variants.info{}.found_in_genomes_haplotype_caller','hbase':'I.FGHC','type':'boolean'},
+            'o61':{'json':'variants.info{}.found_in_panels_haplotype_caller','hbase':'I.FPHC','type':'boolean'},
+            'o62':{'json':'variants.info{}.check_insilico','hbase':'I.CI','type':'int'},
+            'o63':{'json':'variants.info{}.check_insilico_username','hbase':'I.CIU','type':'string'},
+            'o64':{'json':'variants.info{}.check_validated_change','hbase':'I.CVC','type':'int'},
+            'o65':{'json':'variants.info{}.check_validated_change_username','hbase':'I.CVCU','type':'string'},
+            'o66':{'json':'variants.info{}.check_somatic_change','hbase':'I.CSC','type':'int'},
+            'o67':{'json':'variants.info{}.check_somatic_change_username','hbase':'I.CSCU','type':'string'},
+            'o68':{'json':'variants.info{}.public_comments','hbase':'I.PC','type':'string'},
+            'o70':{'json':'variants.info{}.insert_date','hbase':'I.ID','type':'int'},
+            'o71':{'json':'variants.info{}.fisher_strand_bias','hbase':'I.FS','type':'float'},
+            'o72':{'json':'variants.info{}.mapping_quality','hbase':'I.MQ','type':'float'},
+            'o73':{'json':'variants.info{}.mle_allele_count','hbase':'I.MLC','type':'int'},
+            'o74':{'json':'variants.info{}.mle_allele_frequency','hbase':'I.MLF','type':'float'},
+            'o75':{'json':'variants.info{}.short_tandem_repeat','hbase':'I.STR','type':'boolean'},
+            'o76':{'json':'variants.info{}.repeat_unit','hbase':'I.RU','type':'string'},
+            'o77':{'json':'variants.info{}.repeat_number_ref','hbase':'I.RPAR','type':'int'},
+            'o78':{'json':'variants.info{}.repeat_number_alt','hbase':'I.RPAA','type':'int'},
+            'o79':{'json':'variants.info{}.fathmm_score','hbase':'I.FAS','type':'float'},
+            'o80':{'json':'variants.info{}.fathmm_pred','hbase':'I.FAP','type':'string'},
+            'o81':{'json':'variants.info{}.aggregation_score_radial_svm','hbase':'I.ASRS','type':'double'},
+            'o82':{'json':'variants.info{}.aggregation_pred_radial_svm','hbase':'I.APRS','type':'string'},
+            'o83':{'json':'variants.info{}.aggregation_score_lr','hbase':'I.ASL','type':'double'},
+            'o84':{'json':'variants.info{}.aggregation_pred_lr','hbase':'I.APL','type':'string'},
+            'o85':{'json':'variants.info{}.reliability_index','hbase':'I.RIN','type':'int'},
+            'o86':{'json':'variants.info{}.gonl_ac','hbase':'I.GONLAC','type':'int'},
+            'o87':{'json':'variants.info{}.gonl_af','hbase':'I.GONLAF','type':'double'},
+            'o88':{'json':'variants.info{}.found_in_crap','hbase':'I.FIC','type':'boolean'},
+            'o89':{'json':'variants.info{}.hgvs_dna','hbase':'I.HGD','type':'string'},
+            'o90':{'json':'variants.info{}.hgvs_protein','hbase':'I.HGP','type':'string'},
+            'o91':{'json':'variants.info{}.cds_length','hbase':'I.CDL','type':'int'},
+            'o92':{'json':'variants.info{}.cds_pos','hbase':'I.CDP','type':'int'},
+            'o93':{'json':'variants.info{}.cdna_pos','hbase':'I.CDAP','type':'int'},
+            'o94':{'json':'variants.info{}.exon_intron_rank','hbase':'I.EXIR','type':'int'},
+            'o95':{'json':'variants.info{}.phyloP46way_primate','hbase':'I.PHPR','type':'double'},
+            'o96':{'json':'variants.info{}.evaluation','hbase':'I.EV','type':'int'},
+            'o97':{'json':'variants.info{}.evaluation_username','hbase':'I.EVU','type':'string'},
+            'o98':{'json':'variants.info{}.evaluation_comments','hbase':'I.EVC','type':'string'},
+            'o99':{'json':'variants.info{}.history','hbase':'I.HIST','type':'string'},
+            'o100':{'json':'variants.info{}.check_segregation','hbase':'I.CS','type':'string'},
+            'o101':{'json':'variants.info{}.check_segregation_username','hbase':'I.CSU','type':'string'},
+            'o102':{'json':'variants.info{}.found_in_panels_torrent_caller','hbase':'I.FPTC','type':'boolean'},
+            'o103':{'json':'variants.info{}.cosmic_id','hbase':'I.COID','type':'string'},
+            'o104':{'json':'variants.info{}.cosmic_count','hbase':'I.COCO','type':'int'},
+            'o105':{'json':'variants.info{}.is_scSNV_RefSeq','hbase':'I.ISREF','type':'boolean'},
+            'o106':{'json':'variants.info{}.is_scSNV_Ensembl','hbase':'I.ISEN','type':'boolean'},
+            'o107':{'json':'variants.info{}.splicing_ada_score','hbase':'I.SPAS','type':'double'},
+            'o108':{'json':'variants.info{}.ARIC5606_EA_AC','hbase':'I.AEAC','type':'int'},
+            'o109':{'json':'variants.info{}.ARIC5606_EA_AF','hbase':'I.AEAF','type':'double'},
+            'o110':{'json':'variants.info{}.clinvar_rs','hbase':'I.CLRS','type':'string'},
+            'o111':{'json':'variants.info{}.clinvar_clnsig','hbase':'I.CLCL','type':'string'},
+            'o112':{'json':'variants.info{}.clinvar_trait','hbase':'I.CLTR','type':'string'},
+            'o113':{'json':'variants.info{}.phastCons46way_primate','hbase':'I.PHAPR','type':'double'},
+            'o114':{'json':'variants.info{}.phastCons46way_placental','hbase':'I.PHAPL','type':'double'},
+            'o115':{'json':'variants.info{}.phastCons100way_vertebrate','hbase':'I.PHAV','type':'double'},
+            'o116':{'json':'variants.info{}.ARIC5606_AA_AC','hbase':'I.ARAC','type':'int'},
+            'o117':{'json':'variants.info{}.ARIC5606_AA_AF','hbase':'I.ARAF','type':'double'},
+            'o118':{'json':'variants.info{}.phyloP100way_vertebreate','hbase':'I.PHYV','type':'double'},
+            'o119':{'json':'variants.info{}.phyloP46way_placental','hbase':'I.PHYP','type':'double'},
+            'o120':{'json':'variants.info{}.cadd_phred','hbase':'I.CAPH','type':'double'},
+            'o121':{'json':'variants.info{}.cadd_raw','hbase':'I.CARA','type':'double'},
+            'o122':{'json':'variants.info{}.vest_score','hbase':'I.VES','type':'double'},
+            'o123':{'json':'variants.info{}.dbsnp_id_141','hbase':'I.DB141','type':'string'},
+            'o124':{'json':'variants.info{}.splicing_ada_pred','hbase':'I.SPAP','type':'string'},
+            'o125':{'json':'variants.info{}.splicing_rf_score','hbase':'I.SPRS','type':'double'},
+            'o126':{'json':'variants.info{}.splicing_rf_pred','hbase':'I.SPRP','type':'string'},
+            'o127':{'json':'variants.info{}.protein_pos','hbase':'I.PROPO','type':'int'},
+            'o128':{'json':'variants.info{}.protein_length','hbase':'I.PROLE','type':'int'},
+
         }
 
         return mapping
@@ -626,7 +742,10 @@ def hbaseToJson(raw_data):
     mapping = fc.getMapping()
 
     # We remove the variants we will not use
-    first_rowkey = raw_data[0].row
+    try:
+        first_rowkey = raw_data[0].row
+    except:
+        first_rowkey = ''
     interesting_rowkey = first_rowkey.split('|')
     interesting_rowkey.pop()
     interesting_rowkey = '|'.join(interesting_rowkey)+'|'
@@ -636,7 +755,10 @@ def hbaseToJson(raw_data):
             good_variants.append(hbase_variant)
 
     # We use a 'specific_variant' where we will take the data
-    specific_variant = raw_data[0].columns
+    try:
+        specific_variant = raw_data[0].columns
+    except:
+        specific_variant = {}
 
     # Basic data to map
     for pyvcf in mapping:
@@ -912,10 +1034,10 @@ def database_create_variants(request, temporary=False, specific_columns=None):
 
     variants_table = ["" for i in xrange(max_value+1)]
     for i in range(1, max_value + 1):
-        if type_fields[i] == 'int':
-            variants_table[i] = inversed_fields[i].replace('.','_')+" INT"
-        else:
+        if type_fields[i] == 'list' or type_fields[i] == 'dict':
             variants_table[i] = inversed_fields[i].replace('.','_')+" STRING"
+        else:
+            variants_table[i] = inversed_fields[i].replace('.','_')+" "+type_fields[i].upper()
 
         if i < max_value:
             variants_table[i] += ","
@@ -934,6 +1056,10 @@ def database_create_variants(request, temporary=False, specific_columns=None):
 
             if type == 'int':
                 default_value = 0
+            elif type == 'float' or type == 'double':
+                default_value = 0.0
+            elif type == 'boolean':
+                default_value = False
             else:
                 default_value = 'NA'
 
