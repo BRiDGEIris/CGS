@@ -97,14 +97,7 @@ class formatConverters(object):
         vcf_reader = vcf.Reader(f)
 
         for record in vcf_reader:
-            linedic = {}
-
-            # We initialize the flat json (the specific name for the call column for each sample will be computed below)
-            linedic['variants.alternateBases[]'] = []
-            linedic['variants.filters[]'] = []
-
-            if isinstance(record.FILTER, list):
-                linedic['variants.filters[]'] = record.FILTER
+            linedics = {}
 
             previous_alt = ""
             for s in record.samples:
@@ -122,42 +115,21 @@ class formatConverters(object):
                     current_alt = tmp[1]
                 else:
                     current_alt = tmp[0]
+                rk = current_alt
+                linedics[rk] = {}
 
-                if previous_alt != current_alt and len(previous_alt) > 0:
-                    # Different alt than before, so we write the line and start from zero again
-                    # TODO: improve, too ugly to live
+                linedics[rk]['variants.filters[]'] = record.FILTER
+                linedics[rk]['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
 
-                    # We write the previous data
-                    for jsonkey in linedic:
-                        if type(linedic[jsonkey]) is list:
-                            if len(linedic[jsonkey]) > 0 :
-                                linedic[jsonkey] = '|'.join(linedic[jsonkey])
-                        elif type(linedic[jsonkey]) is dict:
-                            linedic[jsonkey] = json.dumps(linedic[jsonkey])
-
-                        if jsonkey not in list_of_columns:
-                            list_of_columns.append(jsonkey)
-
-                    o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
-
-                    # We reinit the line we are creating
-                    linedic = {}
-                    linedic['variants.alternateBases[]'] = []
-                    linedic['variants.filters[]'] = []
-                else:
-                    previous_alt = current_alt
-
-                linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
-
-                linedic['variants.alternateBases[]'] = str(current_alt)
-                linedic['variants.calls[]']['genotype[]'] = str(current_alt)
+                linedics[rk]['variants.alternateBases[]'] = str(current_alt)
+                linedics[rk]['variants.calls[]']['genotype[]'] = str(current_alt)
 
                 # We get the common data for all the samples
                 if hasattr(s.data,'DP'):
-                    linedic['variants.calls[]']['info{}']['read_depth'] = s.data.DP
+                    linedics[rk]['variants.calls[]']['info{}']['read_depth'] = s.data.DP
                 else:
-                    linedic['variants.calls[]']['info{}']['read_depth'] = "NA"
-                linedic['variants.variantSetId'] = analysis+'|'+initial_file
+                    linedics[rk]['variants.calls[]']['info{}']['read_depth'] = "NA"
+                linedics[rk]['variants.variantSetId'] = analysis+'|'+initial_file
 
                 """ Start annotations """
                 if db_cursor is not None:
@@ -243,57 +215,50 @@ class formatConverters(object):
                             current_alt = tmp[1]
                         else:
                             current_alt = tmp[0]
-                        linedic['variants.calls[]']['genotype[]'] = current_alt
+                        linedics[rk]['variants.calls[]']['genotype[]'] = current_alt
                     elif mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
                         tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}.')
-                        linedic['variants.calls[]']['info{}'][tmp[1]] = value
+                        linedics[rk]['variants.calls[]']['info{}'][tmp[1]] = value
                     elif mapping[pyvcf_parameter].startswith('variants.calls[].'):
                         tmp = mapping[pyvcf_parameter].split('variants.calls[].')
                         if tmp[1] != 'info{}':
-                            linedic['variants.calls[]'][tmp[1]] = value
+                            linedics[rk]['variants.calls[]'][tmp[1]] = value
                     else:
-                        linedic[mapping[pyvcf_parameter]] = value
+                        linedics[rk][mapping[pyvcf_parameter]] = value
 
                 # Some information we need to compute ourselves
-                linedic['variants.calls[]']['callSetId'] = s.sample
-                linedic['variants.calls[]']['callSetName'] = s.sample
+                linedics[rk]['variants.calls[]']['callSetId'] = s.sample
+                linedics[rk]['variants.calls[]']['callSetName'] = s.sample
 
                 # We have to add the sample id for the current sample
-                linedic['variants.calls[]']['info{}']['sampleId'] = s.sample
+                linedics[rk]['variants.calls[]']['info{}']['sampleId'] = s.sample
 
-                """
-                    TODO: Here you should annotate the variant with external databases, but not inside variants.calls[].info{}!
-                    as we want to be able to have filters on those fields after. But the problem is that some
-                    annotations depend on the alternates... So it would be very complicate...
-                    BUT: the alternate is directly in the rowkey! So no big problem thanks to that.
-                """
-
-
-
-                if linedic['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
-                    list_of_samples.append(linedic['variants.calls[]']['info{}']['sampleId'])
+                if linedics[rk]['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
+                    list_of_samples.append(linedics[rk]['variants.calls[]']['info{}']['sampleId'])
 
                 # Before writing the data to the json flat, we need to format them according to the avsc file
                 # and the current sample id
-                rowkey = organization + '|' + analysis + '|' + linedic['variants.referenceName'] + '|' + linedic['variants.start'] + '|' + linedic['variants.referenceBases'] + '|' + linedic['variants.calls[]']['genotype[]']
-                linedic['variants.id'] = rowkey
-                linedic['variants.calls[].'+s.sample] = json.dumps(linedic['variants.calls[]'])
-                del linedic['variants.calls[]']
+                rowkey = organization + '|' + analysis + '|' + linedics[rk]['variants.referenceName'] + '|' + linedics[rk]['variants.start'] + '|' + linedics[rk]['variants.referenceBases'] + '|' + linedics[rk]['variants.calls[]']['genotype[]']
+                linedics[rk]['variants.id'] = rowkey
+                linedics[rk]['variants.calls[].'+s.sample] = json.dumps(linedics[rk]['variants.calls[]'])
+                del linedics[rk]['variants.calls[]']
                 if rowkey not in list_of_rowkeys:
                     list_of_rowkeys.append(rowkey)
 
             # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
-            for jsonkey in linedic:
-                if type(linedic[jsonkey]) is list:
-                    if len(linedic[jsonkey]) > 0 :
-                        linedic[jsonkey] = '|'.join(linedic[jsonkey])
-                elif type(linedic[jsonkey]) is dict:
-                    linedic[jsonkey] = json.dumps(linedic[jsonkey])
+            for rk in linedics:
+                linedic = linedics[rk]
+                for jsonkey in linedic:
+                    if type(linedic[jsonkey]) is list:
+                        if len(linedic[jsonkey]) > 0 :
+                            linedic[jsonkey] = '|'.join(linedic[jsonkey])
+                    elif type(linedic[jsonkey]) is dict:
+                        linedic[jsonkey] = json.dumps(linedic[jsonkey])
 
-                if jsonkey not in list_of_columns:
-                    list_of_columns.append(jsonkey)
+                    if jsonkey not in list_of_columns:
+                        list_of_columns.append(jsonkey)
 
-            o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
+                o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
         o.close()
         f.close()
 
