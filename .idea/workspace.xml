@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="07ab4086-d34c-403a-9afb-21054eb94c25" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/api.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/api.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/converters.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" afterPath="$PROJECT_DIR$/apps/variants/src/variants/serializers.py" />
     </list>
     <ignored path="cgs-apps.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -23,7 +23,7 @@
     <favorites_list name="cgs-apps" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.4331485">
+    <splitter split-orientation="horizontal" split-proportion="0.4664202">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
           <file leaf-file-name="views.py" pinned="false" current-in-tab="false">
@@ -71,8 +71,8 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="-135.08571">
-                  <caret line="820" column="44" selection-start-line="820" selection-start-column="44" selection-end-line="820" selection-end-column="44" />
+                <state vertical-scroll-proportion="-17.114286">
+                  <caret line="753" column="39" selection-start-line="753" selection-start-column="39" selection-end-line="753" selection-end-column="39" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -125,8 +125,8 @@
           <file leaf-file-name="serializers.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.76260763">
-                  <caret line="630" column="44" selection-start-line="630" selection-start-column="44" selection-end-line="630" selection-end-column="44" />
+                <state vertical-scroll-proportion="0.5276753">
+                  <caret line="187" column="32" selection-start-line="187" selection-start-column="32" selection-end-line="187" selection-end-column="32" />
                   <folding>
                     <element signature="e#0#38#0" expanded="true" />
                   </folding>
@@ -141,11 +141,21 @@
           <file leaf-file-name="converters.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.529563">
-                  <caret line="886" column="4" selection-start-line="886" selection-start-column="4" selection-end-line="886" selection-end-column="4" />
+                <state vertical-scroll-proportion="0.6285347">
+                  <caret line="175" column="29" selection-start-line="175" selection-start-column="29" selection-end-line="175" selection-end-column="29" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="setup.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/apps/variants/setup.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="0.0">
+                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -702,32 +712,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/exception.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/forms.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/models.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#0#35#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/views.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-25.885714">
@@ -746,10 +730,44 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/setup.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#35#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/forms.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/exception.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/serializers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.76260763">
-          <caret line="630" column="44" selection-start-line="630" selection-start-column="44" selection-end-line="630" selection-end-column="44" />
+        <state vertical-scroll-proportion="0.5276753">
+          <caret line="187" column="32" selection-start-line="187" selection-start-column="32" selection-end-line="187" selection-end-column="32" />
           <folding>
             <element signature="e#0#38#0" expanded="true" />
           </folding>
@@ -758,8 +776,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/apps/variants/src/variants/converters.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.529563">
-          <caret line="886" column="4" selection-start-line="886" selection-start-column="4" selection-end-line="886" selection-end-column="4" />
+        <state vertical-scroll-proportion="0.6285347">
+          <caret line="175" column="29" selection-start-line="175" selection-start-column="29" selection-end-line="175" selection-end-column="29" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>

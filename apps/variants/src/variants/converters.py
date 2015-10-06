@@ -23,6 +23,11 @@ from hbase.api import HbaseApi
 from django.db import connections
 
 class formatConverters(object):
+    previous_gonl = {}
+    previous_dbn = {}
+    previous_dbsnv = {}
+    previous_chr = {}
+
     """
     Format converters
 
@@ -76,6 +81,7 @@ class formatConverters(object):
         try:
             db_cursor = self.connect_to_db()
         except Exception as e:
+            db_cursor = None
             tmpf = open('errors.txt','a')
             tmpf.write("Error to access the cgs_annotations database: "+str(e)+"\n")
             tmpf.close()
@@ -153,6 +159,23 @@ class formatConverters(object):
                     linedic['variants.calls[]']['info{}']['read_depth'] = "NA"
                 linedic['variants.variantSetId'] = analysis+'|'+initial_file
 
+                """ Start annotations """
+                if db_cursor is not None:
+                    chromosome = record.CHROM
+                    position = record.POS
+                    reference = record.REF
+                    alternate = current_alt
+
+                    gonl = self.annotate_with_gonl(db_cursor, chromosome, position, reference, alternate)
+                    dbn = self.annotate_with_dbn(db_cursor, chromosome, position, reference, alternate)
+                    dbsnv = self.annotate_with_dbsnv(db_cursor, chromosome, position, reference, alternate)
+                    #chr = self.annotate_with_chr(db_cursor, linedic['variants.referenceName'], linedic['variants.start'], linedic['variants.referenceBases'], linedic['variants.calls[]']['genotype[]'])
+                else:
+                    gonl = {}
+                    dbn = {}
+                    dbsnv = {}
+                """ End annotations """
+
                 # Now we map each additional data depending on the configuration
                 for pyvcf_parameter in mapping:
 
@@ -185,6 +208,27 @@ class formatConverters(object):
                             value = ""
 
                         if value is None:
+                            value = ""
+                    elif pyvcf_parameter.startswith('gonl.'):
+                        field = pyvcf_parameter.split('.').pop()
+
+                        if field in gonl:
+                            value = gonl[field]
+                        else:
+                            value = ""
+                    elif pyvcf_parameter.startswith('dbnsfp.'):
+                        field = pyvcf_parameter.split('.').pop()
+
+                        if field in dbn:
+                            value = dbn[field]
+                        else:
+                            value = ""
+                    elif pyvcf_parameter.startswith('dbsnv.'):
+                        field = pyvcf_parameter.split('.').pop()
+
+                        if field in dbsnv:
+                            value = dbsnv[field]
+                        else:
                             value = ""
                     else:
                         value = ""
@@ -224,10 +268,7 @@ class formatConverters(object):
                     BUT: the alternate is directly in the rowkey! So no big problem thanks to that.
                 """
 
-                """ Start annotations """
-                #gonl = self.annotate_with_gonl(db_cursor, linedic[''], position, reference, alternate)
 
-                """ End annotations """
 
                 if linedic['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
                     list_of_samples.append(linedic['variants.calls[]']['info{}']['sampleId'])
@@ -258,6 +299,30 @@ class formatConverters(object):
 
         status = "succeeded"
         return status, list_of_columns, list_of_samples, list_of_rowkeys
+
+    def annotate_with_gonl(self, cursor, chromosome, position, reference, alternate):
+        if len(self.previous_gonl) > 0 and self.previous_gonl['chr'] == chromosome and self.previous_gonl['position'] == position and self.previous_gonl['reference'] == reference and self.previous_gonl['alternative'] == alternate:
+            return self.previous_gonl
+
+        self.previous_gonl = dictfetchall(cursor.execute('SELECT * FROM gonl_chr'+str(chromosome)+' WHERE pos="'+position+'" AND reference="'+reference+'" AND alternative="'+alternate+'"'))
+        return self.previous_gonl
+
+    def annotate_with_dbn(self, cursor, chromosome, position, reference, alternate):
+        if len(self.previous_dbn) > 0 and self.previous_dbn['chr'] == chromosome and self.previous_dbn['position'] == position and self.previous_dbn['alternative'] == alternate:
+            return self.previous_dbn
+
+        self.previous_dbn = dictfetchall(cursor.execute('SELECT * FROM dbnsfp_chr'+str(chromosome)+' WHERE pos="'+position+'" AND alternative="'+alternate+'"'))
+        return self.previous_dbn
+
+    def annotate_with_dbsnv(self, cursor, chromosome, position, reference, alternate):
+        if len(self.previous_dbsnv) > 0 and self.previous_dbsnv['chr'] == chromosome and self.previous_dbsnv['position'] == position and self.previous_dbsnv['alternative'] == alternate:
+            return self.previous_dbsnv
+
+        self.previous_dbsnv = dictfetchall(cursor.execute('SELECT * FROM dbsnv_chr'+str(chromosome)+' WHERE pos="'+position+'" AND alternative="'+alternate+'"'))
+        return self.previous_dbsnv
+
+    def annotate_with_chr(self, cursor, chromosome, position, reference, alternate):
+        return dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pos="'+position+'" AND alternative="'+alternate+'"'))
 
     def convertHbaseToAvro(self,avscFile = "", add_default=True, modify=True):
         """
@@ -531,7 +596,7 @@ class formatConverters(object):
         return new_mapping
 
     def getMapping(self):
-        # Return the mapping between PyVCF, JSON, HBase and Parquet (parquet position only)
+        # Return the mapping between PyVCF (or alternate db), JSON, HBase and Parquet (parquet position only)
         # Sometimes there is nothing in PyVCF to give information for a specific file created by ourselves.
         # DO NOT change the 'json' fields...
 
@@ -591,28 +656,28 @@ class formatConverters(object):
             'o29':{'json':'variants.calls[].info{}.genotype_likelihood_hom_alt','hbase':'F.GLHA','highlander':'genotype_likelihood_hom_alt','type':'float'},
             'o30':{'json':'variants.info{}.snpeff_effect','hbase':'I.SNPE','highlander':'snpeff_effect','type':'string'},
             'o31':{'json':'variants.info{}.snpeff_impact','hbase':'I.SNPI','highlander':'snpeff_impact','type':'string'},
-            'o32':{'json':'variants.info{}.sift_score','hbase':'I.SIFTS','highlander':'sift_score','type':'float'},
-            'o33':{'json':'variants.info{}.sift_pred','hbase':'I.SIFTP','highlander':'sift_pred','type':'string'},
-            'o34':{'json':'variants.info{}.pph2_hdiv_score','hbase':'I.PHS','highlander':'pph2_hdiv_score','type':'double'},
-            'o35':{'json':'variants.info{}.pph2_hdiv_pred','hbase':'I.PHP','highlander':'pph2_hdiv_pred','type':'string'},
-            'o36':{'json':'variants.info{}.pph2_hvar_score','hbase':'I.PVS','highlander':'pph2_hvar_score','type':'double'},
-            'o37':{'json':'variants.info{}.pph2_hvar_pred','hbase':'I.PVP','highlander':'pph2_hvar_pred','type':'string'},
-            'o38':{'json':'variants.info{}.lrt_score','hbase':'I.LRTS','highlander':'lrt_score','type':'double'},
-            'o38b':{'json':'variants.info{}.lrt_pred','hbase':'I.LRTP','highlander':'lrt_pred','type':'string'},
-            'o39':{'json':'variants.info{}.mutation_taster_score','hbase':'I.MTS','highlander':'mutation_taster_score','type':'double'},
-            'o40':{'json':'variants.info{}.mutation_taster_pred','hbase':'I.MTP','highlander':'mutation_taster_pred','type':'string'},
-            'o41':{'json':'variants.info{}.mutation_assessor_score','hbase':'I.MAS','highlander':'mutation_assessor_score','type':'double'},
-            'o42':{'json':'variants.info{}.mutation_assessor_pred','hbase':'I.MAP','highlander':'mutation_assessor_pred','type':'string'},
+            'dbnsfp.SIFT_score':{'json':'variants.info{}.sift_score','hbase':'I.SIFTS','highlander':'sift_score','type':'float'},
+            'dbnsfp.SIFT_pred':{'json':'variants.info{}.sift_pred','hbase':'I.SIFTP','highlander':'sift_pred','type':'string'},
+            'dbnsfp.Polyphen2_HDIV_score':{'json':'variants.info{}.pph2_hdiv_score','hbase':'I.PHS','highlander':'pph2_hdiv_score','type':'double'},
+            'dbnsfp.Polyphen2_HDIV_pred':{'json':'variants.info{}.pph2_hdiv_pred','hbase':'I.PHP','highlander':'pph2_hdiv_pred','type':'string'},
+            'dbnsfp.Polyphen2_HVAR_score':{'json':'variants.info{}.pph2_hvar_score','hbase':'I.PVS','highlander':'pph2_hvar_score','type':'double'},
+            'dbnsfp.Polyphen2_HVAR_pred':{'json':'variants.info{}.pph2_hvar_pred','hbase':'I.PVP','highlander':'pph2_hvar_pred','type':'string'},
+            'dbnsfp.LRT_score':{'json':'variants.info{}.lrt_score','hbase':'I.LRTS','highlander':'lrt_score','type':'double'},
+            'dbnsfp.LRT_pred':{'json':'variants.info{}.lrt_pred','hbase':'I.LRTP','highlander':'lrt_pred','type':'string'},
+            'dbnsfp.MutationTaster_score':{'json':'variants.info{}.mutation_taster_score','hbase':'I.MTS','highlander':'mutation_taster_score','type':'double'},
+            'dbnsfp.MutationTaster_pred':{'json':'variants.info{}.mutation_taster_pred','hbase':'I.MTP','highlander':'mutation_taster_pred','type':'string'},
+            'dbnsfp.MutationAssessor_score':{'json':'variants.info{}.mutation_assessor_score','hbase':'I.MAS','highlander':'mutation_assessor_score','type':'double'},
+            'dbnsfp.MutationAssessor_pred':{'json':'variants.info{}.mutation_assessor_pred','hbase':'I.MAP','highlander':'mutation_assessor_pred','type':'string'},
             'o43':{'json':'variants.info{}.consensus_prediction','hbase':'I.CP','highlander':'consensus_prediction','type':'int'},
             'o44':{'json':'variants.info{}.other_effects','hbase':'I.ANN','highlander':'other_prediction','type':'boolean'},
-            'o45':{'json':'variants.info{}.gerp_nr','hbase':'I.GENR','highlander':'gerp_nr','type':'double'},
-            'o46':{'json':'variants.info{}.gerp_rs','hbase':'I.GERS','highlander':'gerp_rs','type':'double'},
-            'o47':{'json':'variants.info{}.siphy_29way_pi','hbase':'I.S2PI','highlander':'siphy_29way_pi','type':'string'},
-            'o48':{'json':'variants.info{}.siphy_29way_log_odds','hbase':'I.S2LO','highlander':'siphy_29way_log_odds','type':'double'},
-            'o49':{'json':'variants.info{}.1000G_AC','hbase':'I.AC1000G','highlander':'1000G_AC','type':'int'},
-            'o50':{'json':'variants.info{}.1000G_AF','hbase':'I.AF1000G','highlander':'1000G_AF','type':'double'},
-            'o51':{'json':'variants.info{}.ESP6500_AA_AF','hbase':'I.EAAF','highlander':'ESP6500_AA_AF','type':'double'},
-            'o52':{'json':'variants.info{}.ESP6500_EA_AF','hbase':'I.EEAF','highlander':'ESP6500_EA_AF','type':'double'},
+            'dbnsfp.GERP++_NR':{'json':'variants.info{}.gerp_nr','hbase':'I.GENR','highlander':'gerp_nr','type':'double'},
+            'dbnsfp.GERP++_RS':{'json':'variants.info{}.gerp_rs','hbase':'I.GERS','highlander':'gerp_rs','type':'double'},
+            'dbnsfp.SiPhy_29way_pi':{'json':'variants.info{}.siphy_29way_pi','hbase':'I.S2PI','highlander':'siphy_29way_pi','type':'string'},
+            'dbnsfp.SiPhy_29way_logOdds':{'json':'variants.info{}.siphy_29way_log_odds','hbase':'I.S2LO','highlander':'siphy_29way_log_odds','type':'double'},
+            'dbnsfp.1000Gp1_AC':{'json':'variants.info{}.1000G_AC','hbase':'I.AC1000G','highlander':'1000G_AC','type':'int'},
+            'dbnsfp.1000Gp1_AF':{'json':'variants.info{}.1000G_AF','hbase':'I.AF1000G','highlander':'1000G_AF','type':'double'},
+            'dbnsfp.ESP6500_AA_AF':{'json':'variants.info{}.ESP6500_AA_AF','hbase':'I.EAAF','highlander':'ESP6500_AA_AF','type':'double'},
+            'dbnsfp.ESP6500_EA_AF':{'json':'variants.info{}.ESP6500_EA_AF','hbase':'I.EEAF','highlander':'ESP6500_EA_AF','type':'double'},
             'o53':{'json':'variants.info{}.lof_tolerant_or_recessive_gene','hbase':'I.LOF','highlander':'lof_tolerant_or_recessive_gene','type':'string'},
             'o54':{'json':'variants.info{}.rank_sum_test_base_qual','hbase':'I.RBQ','highlander':'rank_sum_test_base_qual','type':'double'},
             'o55':{'json':'variants.info{}.rank_sum_test_read_mapping_qual','hbase':'I.RRMQ','highlander':'rank_sum_test_read_mapping_qual','type':'double'},
@@ -638,15 +703,15 @@ class formatConverters(object):
             'o76':{'json':'variants.info{}.repeat_unit','hbase':'I.RU','highlander':'repeat_unit','type':'string'},
             'o77':{'json':'variants.info{}.repeat_number_ref','hbase':'I.RPAR','highlander':'repeat_number_ref','type':'int'},
             'o78':{'json':'variants.info{}.repeat_number_alt','hbase':'I.RPAA','highlander':'repeat_number_alt','type':'int'},
-            'o79':{'json':'variants.info{}.fathmm_score','hbase':'I.FAS','highlander':'fathmm_score','type':'float'},
-            'o80':{'json':'variants.info{}.fathmm_pred','hbase':'I.FAP','highlander':'fathmm_pred','type':'string'},
-            'o81':{'json':'variants.info{}.aggregation_score_radial_svm','hbase':'I.ASRS','highlander':'aggregation_score_radial_svm','type':'double'},
-            'o82':{'json':'variants.info{}.aggregation_pred_radial_svm','hbase':'I.APRS','highlander':'aggregation_pred_radial_svm','type':'string'},
-            'o83':{'json':'variants.info{}.aggregation_score_lr','hbase':'I.ASL','highlander':'aggregation_score_lr','type':'double'},
-            'o84':{'json':'variants.info{}.aggregation_pred_lr','hbase':'I.APL','highlander':'aggregation_pred_lr','type':'string'},
-            'o85':{'json':'variants.info{}.reliability_index','hbase':'I.RIN','highlander':'reliability_index','type':'int'},
-            'o86':{'json':'variants.info{}.gonl_ac','hbase':'I.GONLAC','highlander':'gonl_ac','type':'int'},
-            'o87':{'json':'variants.info{}.gonl_af','hbase':'I.GONLAF','highlander':'gonl_af','type':'double'},
+            'dbnsfp.FATHMM_score':{'json':'variants.info{}.fathmm_score','hbase':'I.FAS','highlander':'fathmm_score','type':'float'},
+            'dbnsfp.FATHMM_pred':{'json':'variants.info{}.fathmm_pred','hbase':'I.FAP','highlander':'fathmm_pred','type':'string'},
+            'dbnsfp.MetaSVM_rankscore':{'json':'variants.info{}.aggregation_score_radial_svm','hbase':'I.ASRS','highlander':'aggregation_score_radial_svm','type':'double'},
+            'dbnsfp.MetaSVM_pred':{'json':'variants.info{}.aggregation_pred_radial_svm','hbase':'I.APRS','highlander':'aggregation_pred_radial_svm','type':'string'},
+            'dbnsfp.MetaLR_score':{'json':'variants.info{}.aggregation_score_lr','hbase':'I.ASL','highlander':'aggregation_score_lr','type':'double'},
+            'dbnsfp.MetaLR_pred':{'json':'variants.info{}.aggregation_pred_lr','hbase':'I.APL','highlander':'aggregation_pred_lr','type':'string'},
+            'dbnsfp.Reliability_index':{'json':'variants.info{}.reliability_index','hbase':'I.RIN','highlander':'reliability_index','type':'int'},
+            'gonl.gonl_ac':{'json':'variants.info{}.gonl_ac','hbase':'I.GONLAC','highlander':'gonl_ac','type':'int'},
+            'gonl.gonl_af':{'json':'variants.info{}.gonl_af','hbase':'I.GONLAF','highlander':'gonl_af','type':'double'},
             'o88':{'json':'variants.info{}.found_in_crap','hbase':'I.FIC','highlander':'found_in_crap','type':'boolean'},
             'o89':{'json':'variants.info{}.hgvs_dna','hbase':'I.HGD','highlander':'hgvs_dna','type':'string'},
             'o90':{'json':'variants.info{}.hgvs_protein','hbase':'I.HGP','highlander':'hgvs_protein','type':'string'},
@@ -654,7 +719,7 @@ class formatConverters(object):
             'o92':{'json':'variants.info{}.cds_pos','hbase':'I.CDP','highlander':'cds_pos','type':'int'},
             'o93':{'json':'variants.info{}.cdna_pos','hbase':'I.CDAP','highlander':'cdna_pos','type':'int'},
             'o94':{'json':'variants.info{}.exon_intron_rank','hbase':'I.EXIR','highlander':'exon_intron_rank','type':'int'},
-            'o95':{'json':'variants.info{}.phyloP46way_primate','hbase':'I.PHPR','highlander':'phyloP46way_primate','type':'double'},
+            'dbnsfp.phyloP46way_primate':{'json':'variants.info{}.phyloP46way_primate','hbase':'I.PHPR','highlander':'phyloP46way_primate','type':'double'},
             'o96':{'json':'variants.info{}.evaluation','hbase':'I.EV','highlander':'evaluation','type':'int'},
             'o97':{'json':'variants.info{}.evaluation_username','hbase':'I.EVU','highlander':'evaluation_username','type':'string'},
             'o98':{'json':'variants.info{}.evaluation_comments','hbase':'I.EVC','highlander':'evaluation_comments','type':'string'},
@@ -662,29 +727,29 @@ class formatConverters(object):
             'o100':{'json':'variants.info{}.check_segregation','hbase':'I.CS','highlander':'check_segregation','type':'string'},
             'o101':{'json':'variants.info{}.check_segregation_username','hbase':'I.CSU','highlander':'check_segregation_username','type':'string'},
             'o102':{'json':'variants.info{}.found_in_panels_torrent_caller','hbase':'I.FPTC','highlander':'found_in_panels_torrent_caller','type':'boolean'},
-            'o103':{'json':'variants.info{}.cosmic_id','hbase':'I.COID','highlander':'cosmic_id','type':'string'},
-            'o104':{'json':'variants.info{}.cosmic_count','hbase':'I.COCO','highlander':'cosmic_count','type':'int'},
-            'o105':{'json':'variants.info{}.is_scSNV_RefSeq','hbase':'I.ISREF','highlander':'is_scSNV_RefSeq','type':'boolean'},
-            'o106':{'json':'variants.info{}.is_scSNV_Ensembl','hbase':'I.ISEN','highlander':'is_scSNV_Ensembl','type':'boolean'},
-            'o107':{'json':'variants.info{}.splicing_ada_score','hbase':'I.SPAS','highlander':'splicing_ada_score','type':'double'},
-            'o108':{'json':'variants.info{}.ARIC5606_EA_AC','hbase':'I.AEAC','highlander':'ARIC5606_EA_AC','type':'int'},
-            'o109':{'json':'variants.info{}.ARIC5606_EA_AF','hbase':'I.AEAF','highlander':'ARIC5606_EA_AF','type':'double'},
-            'o110':{'json':'variants.info{}.clinvar_rs','hbase':'I.CLRS','highlander':'clinvar_rs','type':'string'},
-            'o111':{'json':'variants.info{}.clinvar_clnsig','hbase':'I.CLCL','highlander':'clinvar_clnsig','type':'string'},
-            'o112':{'json':'variants.info{}.clinvar_trait','hbase':'I.CLTR','highlander':'clinvar_trait','type':'string'},
-            'o113':{'json':'variants.info{}.phastCons46way_primate','hbase':'I.PHAPR','highlander':'phastCons46way_primate','type':'double'},
-            'o114':{'json':'variants.info{}.phastCons46way_placental','hbase':'I.PHAPL','highlander':'phastCons46way_placental','type':'double'},
-            'o115':{'json':'variants.info{}.phastCons100way_vertebrate','hbase':'I.PHAV','highlander':'phastCons100way_vertebrate','type':'double'},
-            'o116':{'json':'variants.info{}.ARIC5606_AA_AC','hbase':'I.ARAC','highlander':'ARIC5606_AA_AC','type':'int'},
-            'o117':{'json':'variants.info{}.ARIC5606_AA_AF','hbase':'I.ARAF','highlander':'ARIC5606_AA_AF','type':'double'},
-            'o118':{'json':'variants.info{}.phyloP100way_vertebreate','hbase':'I.PHYV','highlander':'phyloP100way_vertebrate','type':'double'},
-            'o119':{'json':'variants.info{}.phyloP46way_placental','hbase':'I.PHYP','highlander':'phyloP46way_placental','type':'double'},
-            'o120':{'json':'variants.info{}.cadd_phred','hbase':'I.CAPH','highlander':'cadd_phred','type':'double'},
-            'o121':{'json':'variants.info{}.cadd_raw','hbase':'I.CARA','highlander':'cadd_raw','type':'double'},
-            'o122':{'json':'variants.info{}.vest_score','hbase':'I.VES','highlander':'vest_score','type':'double'},
+            'dbnsfp.COSMIC_ID':{'json':'variants.info{}.cosmic_id','hbase':'I.COID','highlander':'cosmic_id','type':'string'},
+            'dbnsfp.COSMIC_CNT':{'json':'variants.info{}.cosmic_count','hbase':'I.COCO','highlander':'cosmic_count','type':'int'},
+            'dbsnv.is_scSNV_RefSeq':{'json':'variants.info{}.is_scSNV_RefSeq','hbase':'I.ISREF','highlander':'is_scSNV_RefSeq','type':'boolean'},
+            'dbsnv.is_scSNV_Ensembl':{'json':'variants.info{}.is_scSNV_Ensembl','hbase':'I.ISEN','highlander':'is_scSNV_Ensembl','type':'boolean'},
+            'dbsnv.ada_score':{'json':'variants.info{}.splicing_ada_score','hbase':'I.SPAS','highlander':'splicing_ada_score','type':'double'},
+            'dbnsfp.ARIC5606_EA_AC':{'json':'variants.info{}.ARIC5606_EA_AC','hbase':'I.AEAC','highlander':'ARIC5606_EA_AC','type':'int'},
+            'dbnsfp.ARIC5606_EA_AF':{'json':'variants.info{}.ARIC5606_EA_AF','hbase':'I.AEAF','highlander':'ARIC5606_EA_AF','type':'double'},
+            'dbnsfp.clinvar_rs':{'json':'variants.info{}.clinvar_rs','hbase':'I.CLRS','highlander':'clinvar_rs','type':'string'},
+            'dbnsfp.clinvar_clnsig':{'json':'variants.info{}.clinvar_clnsig','hbase':'I.CLCL','highlander':'clinvar_clnsig','type':'string'},
+            'dbnsfp.clinvar_clnsig':{'json':'variants.info{}.clinvar_trait','hbase':'I.CLTR','highlander':'clinvar_trait','type':'string'},
+            'dbnsfp.phastCons46way_primate':{'json':'variants.info{}.phastCons46way_primate','hbase':'I.PHAPR','highlander':'phastCons46way_primate','type':'double'},
+            'dbnsfp.phastCons46way_placental':{'json':'variants.info{}.phastCons46way_placental','hbase':'I.PHAPL','highlander':'phastCons46way_placental','type':'double'},
+            'dbnsfp.phastCons100way_vertebrate':{'json':'variants.info{}.phastCons100way_vertebrate','hbase':'I.PHAV','highlander':'phastCons100way_vertebrate','type':'double'},
+            'dbnsfp.ARIC5606_AA_AC':{'json':'variants.info{}.ARIC5606_AA_AC','hbase':'I.ARAC','highlander':'ARIC5606_AA_AC','type':'int'},
+            'dbnsfp.ARIC5606_AA_AF':{'json':'variants.info{}.ARIC5606_AA_AF','hbase':'I.ARAF','highlander':'ARIC5606_AA_AF','type':'double'},
+            'dbnsfp.phyloP100way_vertebreate':{'json':'variants.info{}.phyloP100way_vertebreate','hbase':'I.PHYV','highlander':'phyloP100way_vertebrate','type':'double'},
+            'dbnsfp.phyloP46way_placental':{'json':'variants.info{}.phyloP46way_placental','hbase':'I.PHYP','highlander':'phyloP46way_placental','type':'double'},
+            'dbnsfp.CADD_phred':{'json':'variants.info{}.cadd_phred','hbase':'I.CAPH','highlander':'cadd_phred','type':'double'},
+            'dbnsfp.CADD_raw':{'json':'variants.info{}.cadd_raw','hbase':'I.CARA','highlander':'cadd_raw','type':'double'},
+            'dbnsfp.VEST3_score':{'json':'variants.info{}.vest_score','hbase':'I.VES','highlander':'vest_score','type':'double'},
             'o123':{'json':'variants.info{}.dbsnp_id_141','hbase':'I.DB141','highlander':'dbsnp_id_141','type':'string'},
             'o124':{'json':'variants.info{}.splicing_ada_pred','hbase':'I.SPAP','highlander':'splicing_ada_pred','type':'string'},
-            'o125':{'json':'variants.info{}.splicing_rf_score','hbase':'I.SPRS','highlander':'splicing_rf_score','type':'double'},
+            'dbsnv.rf_score':{'json':'variants.info{}.splicing_rf_score','hbase':'I.SPRS','highlander':'splicing_rf_score','type':'double'},
             'o126':{'json':'variants.info{}.splicing_rf_pred','hbase':'I.SPRP','highlander':'splicing_rf_pred','type':'string'},
             'o127':{'json':'variants.info{}.protein_pos','hbase':'I.PROPO','highlander':'protein_pos','type':'int'},
             'o128':{'json':'variants.info{}.protein_length','hbase':'I.PROLE','highlander':'protein_length','type':'int'},
@@ -703,18 +768,6 @@ class formatConverters(object):
             dict(zip(columns, row))
             for row in cursor.fetchall()
         ]
-
-    def annotate_with_gonl(self, cursor, chromosome, position, reference, alternate):
-        pk = str(chromosome)+'_'+str(position)+'_'+reference+'_'+alternate
-        return dictfetchall(cursor.execute('SELECT * FROM gonl_chr'+str(chromosome)+' WHERE pk="'+pk+'"'))
-
-    def annotate_with_dbn(self, cursor, chromosome, position, reference, alternate):
-        pk = str(chromosome)+'_'+str(position)+'_'+alternate
-        return dictfetchall(cursor.execute('SELECT * FROM dbnsfp_chr'+str(chromosome)+' WHERE pk="'+pk+'"'))
-
-    def annotate_with_chr(self, cursor, chromosome, position, reference, alternate):
-        pk = str(position)+'_'+alternate
-        return dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pk="'+pk+'"'))
 
 
 def hbaseTableName(variantId, sampleId):
@@ -884,7 +937,7 @@ def hbaseToJson(raw_data):
     tmp = mapped['variants.id'].split('|')
     tmp.pop()
     mapped['variants.id'] = '|'.join(tmp)
-    
+
     # Now we need to take care of calls (we cannot simply take information from specific_variant, we need to take
     # the data from all good_variants too)
     mapped['variants.calls[]'] = []

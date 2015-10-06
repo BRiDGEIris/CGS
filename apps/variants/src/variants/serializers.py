@@ -180,9 +180,9 @@ class VCFSerializer(serializers.Serializer):
 
         # We analyze the vcf, then insert the data inside hbase & impala. We don't wait for the import to finish to return the page
         result['text'] = 'The import started correctly and the data from the vcf should be available soon.'
-        thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
-        thr.start()
-        #import_of_vcf(request, filename, length)
+        #thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
+        #thr.start()
+        import_of_vcf(request, filename, length)
 
         if status == 'succeeded':
             result['status'] = 1
