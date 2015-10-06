@@ -387,8 +387,10 @@ class VariantDetail(APIView):
         """
         Realize an advanced search on the impala data. We receive a query made by Highlander
         so the fields might be very specific.
-        :param request:
-        :return:
+        Important note: even if we emulate Highlander, we don't send back exactly the same
+        results as it. For example a select count(*) will count the number of variants, not the number
+        of calls. And Highlander should take that into account (as for him it would return the number
+        of calls)
         """
 
         result = {'status':1,'text':'Everything is alright.'}
@@ -399,7 +401,7 @@ class VariantDetail(APIView):
             data = {
                 "method": "SELECT",
                 "fields": "count(*)",# list of fields separated like a sql query, by a comma
-                "condition": "variants.referenceName = '1'", # list of conditions (WHERE clause) like a sql query
+                "condition": "reference = 'T'", # list of conditions (WHERE clause) like a sql query
                 "limit": 5000,
                 "offset": 0,
                 "order-by": ""
@@ -411,7 +413,7 @@ class VariantDetail(APIView):
 
         # We get the keys associated to the json we received
         fc = formatConverters(input_file='stuff.vcf',output_file='stuff.json')
-        mapping = fc.getMappingJsonToParquet()
+        mapping = fc.getMappingHighlanderToParquet()
 
         # We prepare the query
         query_data = {}
