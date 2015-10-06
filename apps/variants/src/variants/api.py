@@ -400,11 +400,11 @@ class VariantDetail(APIView):
         if len(data) == 0:
             data = {
                 "method": "SELECT",
-                "fields": "count(*)",# list of fields separated like a sql query, by a comma
+                "fields": "*",# list of fields separated like a sql query, by a comma
                 "condition": "reference = 'T'", # list of conditions (WHERE clause) like a sql query
                 "limit": 5000,
-                "offset": 0,
-                "order-by": ""
+                "offset": 5,
+                "order-by": "reference"
             }
 
         """ End test """
@@ -447,12 +447,15 @@ class VariantDetail(APIView):
         order_by = data['order-by']
         for json_parameter in mapping:
             order_by = order_by.replace(json_parameter, mapping[json_parameter])
-        query_data['order-by'] = order_by
+        if data['order-by'] > 0:
+            query_data['order-by'] = "ORDER BY "+order_by
+        else:
+            query_data['order-by'] = ""
 
         # TODO format the query when it involves specific samples (a little bit tricky to do that...)!
 
         # We format the final query (which might be invalid but we don't care right now)
-        query = query_data['method']+" "+query_data['fields']+" FROM variants "+query_data['condition']+" "+query_data['limit']+" "+query_data['offset']
+        query = query_data['method']+" "+query_data['fields']+" FROM variants "+query_data['condition']+" "+query_data['order-by']+" "+query_data['limit']+" "+query_data['offset']
 
         f = open('superhello-queries.txt','a')
         f.write(query+'\n')
