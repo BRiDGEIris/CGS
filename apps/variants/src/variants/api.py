@@ -400,11 +400,11 @@ class VariantDetail(APIView):
         if len(data) == 0:
             data = {
                 "method": "SELECT",
-                "fields": "pk, reference, alternative",# list of fields separated like a sql query, by a comma
-                "condition": "reference = 'T'", # list of conditions (WHERE clause) like a sql query
-                "limit": 5000,
-                "offset": 5,
-                "order-by": "reference"
+                "fields": "*",# list of fields separated like a sql query, by a comma
+                "condition": "", # list of conditions (WHERE clause) like a sql query
+                "limit": 5,
+                "offset": 0,
+                "order-by": ""
             }
 
         """ End test """
@@ -449,7 +449,7 @@ class VariantDetail(APIView):
         order_by = data['order-by']
         for json_parameter in mapping:
             order_by = order_by.replace(json_parameter, mapping[json_parameter])
-        if data['order-by'] > 0:
+        if len(data['order-by']) > 0:
             query_data['order-by'] = "ORDER BY "+order_by
         else:
             query_data['order-by'] = ""

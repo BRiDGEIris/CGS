@@ -20,6 +20,7 @@ from subprocess import *
 import json
 import time
 from hbase.api import HbaseApi
+from django.db import connections
 
 class formatConverters(object):
     """
@@ -72,6 +73,13 @@ class formatConverters(object):
             status = "failed"
             raise ValueError(msg)
 
+        try:
+            db_cursor = self.connect_to_db()
+        except Exception as e:
+            tmpf = open('errors.txt','a')
+            tmpf.write("Error to access the cgs_annotations database: "+str(e)+"\n")
+            tmpf.close()
+
         mapping = self.getMappingPyvcfToJson()
 
         f = open(self.input_file, 'r')
@@ -92,6 +100,7 @@ class formatConverters(object):
             if isinstance(record.FILTER, list):
                 linedic['variants.filters[]'] = record.FILTER
 
+            previous_alt = ""
             for s in record.samples:
 
                 # The most important thing to start with: check if the current sample has an alternate or not!
@@ -101,18 +110,41 @@ class formatConverters(object):
                     # We are not fetching a variant, so we can skip the information...
                     continue
 
+                # Each variant line in the db is linked to a specific ALT, not multiple
+                tmp = s.gt_bases.split('|')
+                if str(record.REF) == tmp[0]:
+                    current_alt = tmp[1]
+                else:
+                    current_alt = tmp[0]
+
+                if previous_alt != current_alt and len(previous_alt) > 0:
+                    # Different alt than before, so we write the line and start from zero again
+                    # TODO: improve, too ugly to live
+
+                    # We write the previous data
+                    for jsonkey in linedic:
+                        if type(linedic[jsonkey]) is list:
+                            if len(linedic[jsonkey]) > 0 :
+                                linedic[jsonkey] = '|'.join(linedic[jsonkey])
+                        elif type(linedic[jsonkey]) is dict:
+                            linedic[jsonkey] = json.dumps(linedic[jsonkey])
+
+                        if jsonkey not in list_of_columns:
+                            list_of_columns.append(jsonkey)
+
+                    o.write(json.dumps(linedic, ensure_ascii=False) + "\n")
+
+                    # We reinit the line we are creating
+                    linedic = {}
+                    linedic['variants.alternateBases[]'] = []
+                    linedic['variants.filters[]'] = []
+                else:
+                    previous_alt = current_alt
+
                 linedic['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
 
-                if isinstance(record.ALT, list):
-                    linedic['variants.alternateBases[]'] = '|'.join([str(a) for a in record.ALT])
-                    linedic['variants.calls[]']['genotype[]'] = '|'.join([str(a) for a in record.ALT])
-                else:
-                    linedic['variants.calls[]']['genotype[]'] = ["Error..."]
-
-                if len(uniqueInList(linedic['variants.calls[]']['genotype[]'])) > 1:
-                    call_het = "Heterozygous"
-                else:
-                    call_het = "Homozygous"
+                linedic['variants.alternateBases[]'] = str(current_alt)
+                linedic['variants.calls[]']['genotype[]'] = str(current_alt)
 
                 # We get the common data for all the samples
                 if hasattr(s.data,'DP'):
@@ -162,7 +194,12 @@ class formatConverters(object):
                     if mapping[pyvcf_parameter] == 'variants.alternateBases[]':
                         pass
                     elif mapping[pyvcf_parameter] == 'variants.calls[].genotype[]':
-                        linedic['variants.calls[]']['genotype[]'] = linedic['variants.alternateBases[]']
+                        tmp = s.gt_bases.split('|')
+                        if str(record.REF) == tmp[0]:
+                            current_alt = tmp[1]
+                        else:
+                            current_alt = tmp[0]
+                        linedic['variants.calls[]']['genotype[]'] = current_alt
                     elif mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
                         tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}.')
                         linedic['variants.calls[]']['info{}'][tmp[1]] = value
@@ -187,12 +224,17 @@ class formatConverters(object):
                     BUT: the alternate is directly in the rowkey! So no big problem thanks to that.
                 """
 
+                """ Start annotations """
+                #gonl = self.annotate_with_gonl(db_cursor, linedic[''], position, reference, alternate)
+
+                """ End annotations """
+
                 if linedic['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
                     list_of_samples.append(linedic['variants.calls[]']['info{}']['sampleId'])
 
                 # Before writing the data to the json flat, we need to format them according to the avsc file
                 # and the current sample id
-                rowkey = organization + '|' + analysis + '|' + linedic['variants.referenceName'] + '|' + linedic['variants.start'] + '|' + linedic['variants.referenceBases'] + '|' + linedic['variants.alternateBases[]'][0]
+                rowkey = organization + '|' + analysis + '|' + linedic['variants.referenceName'] + '|' + linedic['variants.start'] + '|' + linedic['variants.referenceBases'] + '|' + linedic['variants.calls[]']['genotype[]']
                 linedic['variants.id'] = rowkey
                 linedic['variants.calls[].'+s.sample] = json.dumps(linedic['variants.calls[]'])
                 del linedic['variants.calls[]']
@@ -651,6 +693,30 @@ class formatConverters(object):
 
         return mapping
 
+    def connect_to_db(self):
+        return connections['cgs_annotations'].cursor()
+
+    def dictfetchall(self, cursor):
+        "Return all rows from a cursor as a dict"
+        columns = [col[0] for col in cursor.description]
+        return [
+            dict(zip(columns, row))
+            for row in cursor.fetchall()
+        ]
+
+    def annotate_with_gonl(self, cursor, chromosome, position, reference, alternate):
+        pk = str(chromosome)+'_'+str(position)+'_'+reference+'_'+alternate
+        return dictfetchall(cursor.execute('SELECT * FROM gonl_chr'+str(chromosome)+' WHERE pk="'+pk+'"'))
+
+    def annotate_with_dbn(self, cursor, chromosome, position, reference, alternate):
+        pk = str(chromosome)+'_'+str(position)+'_'+alternate
+        return dictfetchall(cursor.execute('SELECT * FROM dbnsfp_chr'+str(chromosome)+' WHERE pk="'+pk+'"'))
+
+    def annotate_with_chr(self, cursor, chromosome, position, reference, alternate):
+        pk = str(position)+'_'+alternate
+        return dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pk="'+pk+'"'))
+
+
 def hbaseTableName(variantId, sampleId):
     # Return the hbase table name for a given variantId (generated by us, already containing information about the analysis)
     # and a sampleId
@@ -814,6 +880,11 @@ def hbaseToJson(raw_data):
                     value = ''
                 mapped[json_field] = value
 
+    # Some modifications regarding the data we will display
+    tmp = mapped['variants.id'].split('|')
+    tmp.pop()
+    mapped['variants.id'] = '|'.join(tmp)
+    
     # Now we need to take care of calls (we cannot simply take information from specific_variant, we need to take
     # the data from all good_variants too)
     mapped['variants.calls[]'] = []
@@ -906,6 +977,11 @@ def parquetToJson(raw_data):
                 else:
                     value = ''
                 mapped[json_field] = value
+
+    # Some modifications regarding the data we will display
+    tmp = mapped['variants.id'].split('|')
+    tmp.pop()
+    mapped['variants.id'] = '|'.join(tmp)
 
     # Now we need to take care of calls
     mapped['variants.calls[]'] = []
