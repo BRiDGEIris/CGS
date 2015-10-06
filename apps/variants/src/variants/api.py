@@ -400,7 +400,7 @@ class VariantDetail(APIView):
         if len(data) == 0:
             data = {
                 "method": "SELECT",
-                "fields": "*",# list of fields separated like a sql query, by a comma
+                "fields": "pk, reference, alternative",# list of fields separated like a sql query, by a comma
                 "condition": "reference = 'T'", # list of conditions (WHERE clause) like a sql query
                 "limit": 5000,
                 "offset": 5,
@@ -422,6 +422,8 @@ class VariantDetail(APIView):
             query_data['method'] = 'SELECT'
 
         fields = data['fields']
+        # We add the mandatory fields just in case (not a problem if we repeat them)
+        fields = "pk, reference, alternative, "+fields
         for json_parameter in mapping:
             fields = fields.replace(json_parameter, mapping[json_parameter])
         query_data['fields'] = fields
