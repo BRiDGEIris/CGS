@@ -63,11 +63,11 @@ If you do not submit any field, you can modify directly the code in api.py at Va
 - Highlander has a dedicated access to query data according to its table structure through http://quickstart.cloudera:8888/variants/api/variants/highlander_search/. It only supports a very limited range of SELECT queries and it will not always return the same data as it would do for the Highlander table. For example a `select count(*)` will count the number of variants in CGS, but in Highlander it would count the number of calls. To modify the behavior of the queries, contribution from Highlander developers is needed.
   - The data sent to CGS should be a POST with the following fields:
     - method: "SELECT"
-    - fields: "<field1>, <field2>, ..." or "count(*)"
-    - condition: "<field1> = <value1> AND <field2> != <value2> ..."
-    - limit: <integer>
-    - offset: <integer>
-    - order-by: "<field>" (mandatory if an offset > 0 is given)
+    - fields: "field1, field2, ..." or "count(*)"
+    - condition: "field1 = value1 AND field2 != value2 ..."
+    - limit: integer
+    - offset: integer
+    - order-by: "field" (mandatory if an offset > 0 is given)
 
 ### App 2
 *There is no other app yet ... please do not hesitate if you want to contribute. 
