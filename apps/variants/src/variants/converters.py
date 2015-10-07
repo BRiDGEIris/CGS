@@ -329,63 +329,6 @@ class formatConverters(object):
     def annotate_with_chr(self, cursor, chromosome, position, reference, alternate):
         return self.dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND alternative="'+alternate+'"'))
 
-    def convertHbaseToAvro(self,avscFile = "", add_default=True, modify=True):
-        """
-            Convert an hbase json file to an avro file using AVSC for making the conversion
-            http://avro.apache.org/docs/1.7.6/gettingstartedpython.html
-        """
-
-        with open(avscFile,'r') as content_file:
-            avro_schema = json.loads(content_file.read())
-        columns_lookup = {}
-        for field in avro_schema['fields']:
-            if 'default' in field:
-                columns_lookup[field['name']] = field['default']
-            else:
-                columns_lookup[field['name']] = 'null'
-
-        status = "failed"
-        supertmp = open('variants.hbase','w')
-        if avscFile == "":
-            msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
-            raise ValueError(msg)
-        else:
-            schema = avro.schema.parse(open(avscFile).read())
-            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
-            h = open(self.input_file)
-            i = 0
-            st = time.time()
-            lines = []
-            while 1: ## reading line per line in the flat json file and write them in the AVRO format
-                line = h.readline()
-                if not line:
-                    break
-                ls = line.strip()
-                data = json.loads(ls)
-
-                if modify is True:
-                    # We need to replace the ';' in the file to an '_'
-                    modified_data = {}
-                    for key in data:
-                        modified_data[key.replace(':','_')] = data[key]
-                    data = modified_data
-
-                i += 1
-                if i % 100 == 0:
-                    tmpf = open('superhello.txt','a')
-                    tmpf.write('Converter for line '+str(i)+': '+str(time.time()-st)+' > len dict: '+str(len(data))+'\n')
-                    tmpf.close()
-                # We finally write the avro file
-                writer.append(data)
-                #supertmp.write(json.dumps(data)+'\n')
-            h.close()
-            writer.close()
-            status = "succeeded"
-        supertmp.close()
-        return(status)
-
-        ## cmd = "java -jar ../avro-tools-1.7.7.jar fromjson --schema-file" + avscFile + " " + self.input_file > self.output_file
-
     def convertFlatJsonToHbase(self):
         """
             Convert a flat json file to an hbase json file. It's mostly a key mapping so nothing big
@@ -445,92 +388,59 @@ class formatConverters(object):
         status = "succeeded"
         return status
 
-    def convertJsonToHBase(self, request, analysis, organization):
-        # The json received should be created previously by 'convertPyvcfToJson' as we will want a json object/line
-        # We will create a json as output too, but it will be adapted to the one used in HBase
+    def convertHbaseToAvro(self,avscFile = "", add_default=True, modify=True):
+        """
+            Convert an hbase json file to an avro file using AVSC for making the conversion
+            http://avro.apache.org/docs/1.7.6/gettingstartedpython.html
+        """
 
-        # 1st: we take the json to text information
-        mapping = self.getMapping()
+        with open(avscFile,'r') as content_file:
+            avro_schema = json.loads(content_file.read())
+        columns_lookup = {}
+        for field in avro_schema['fields']:
+            if 'default' in field:
+                columns_lookup[field['name']] = field['default']
+            else:
+                columns_lookup[field['name']] = 'null'
 
-        json_to_hbase = {}
-        for key in mapping:
-            json_to_hbase[mapping[key]['json']] = mapping[key]['hbase'].replace('.',':')
+        status = "failed"
+        supertmp = open('variants.hbase','w')
+        if avscFile == "":
+            msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
+            raise ValueError(msg)
+        else:
+            schema = avro.schema.parse(open(avscFile).read())
+            writer = DataFileWriter(open(self.output_file, "w"), DatumWriter(), schema)
+            h = open(self.input_file)
+            i = 0
+            st = time.time()
+            lines = []
+            while 1: ## reading line per line in the flat json file and write them in the AVRO format
+                line = h.readline()
+                if not line:
+                    break
+                ls = line.strip()
+                data = json.loads(ls)
 
-        # 2nd: we create a temporary file in which we will save each future line for HBase
-        f = open(self.input_file, 'r')
-        o = open(self.output_file, 'w')
+                if modify is True:
+                    # We need to replace the ';' in the file to an '_'
+                    modified_data = {}
+                    for key in data:
+                        modified_data[key.replace(':','_')] = data[key]
+                    data = modified_data
 
-        for json_line in f:
-            variant = json.loads(json_line)
-
-            output_line = {}
-            rowkey = organization + '-' + analysis + '-' + variant['variants.referenceName'] + '-' + variant['variants.start'] + '-' + variant['variants.referenceBases'] + '-' + variant['variants.alternateBases[]'][0]
-            output_line['rowkey'] = rowkey
-            variant['variants.id'] = rowkey
-            for attribute in variant:
-
-                if attribute == 'variants.calls[]':
-                    # Specific case for the variants.calls[] (in fact, it will be variants.calls[0], variants.calls[1], ...
-
-                    for call in variant[attribute]:
-                        # We take the sample id associated to this call
-                        if not 'info{}' in call:
-                            continue
-                        sampleId = call['info{}']['sampleId']
-                        variantId = variant['variants.id']
-
-                        # We generate the table name based on the 'sampleId' and the 'id' field (containing the information on the current analysis)
-                        table_name_for_call = hbaseTableName(variantId, sampleId)
-
-                        # We got through the different fields for this object
-                        subline = {}
-                        for subattribute in call:
-                            if subattribute == 'info{}':
-                                for infokey in call[subattribute]:
-                                    if subattribute in subline: # each dict info is separated through '|'
-                                        subline[subattribute] += '|'
-                                    else:
-                                        subline[subattribute] = ''
-
-                                    if type(call[subattribute][infokey]) is list:
-                                        # The first element of multiple values separated by ';' is the info key.
-                                        subline[subattribute] += infokey+';'+';'.join(str(value) for value in call[subattribute][infokey])
-                                    else:
-                                        subline[subattribute] += infokey+';'+str(call[subattribute][infokey])
-                            else:
-                                if type(call[subattribute]) is list:
-                                    subline[subattribute] = ';'.join(str(value) for value in call[subattribute])
-                                else:
-                                    subline[subattribute] = str(call[subattribute])
-
-                            if subline[subattribute] == "None":
-                                subline[subattribute] = ""
-
-                        # We merge the information for the given call.
-                        output_line[table_name_for_call] = '|'.join(key+'|'+value for key, value in subline.iteritems())
-
-                elif attribute == 'info{}':
-                    for infokey in variant[attribute]:
-                        if attribute in output_line: # each dict info is separated through '|'
-                            output_line[attribute] += '|'
-
-                        if type(variant[attribute][infokey]) is list:
-                            # The first element of multiple values separated by ';' is the info key.
-                            output_line[attribute] += infokey+';'+';'.join(str(value) for value in variant[attribute][infokey])
-                        else:
-                            output_line[attribute] += infokey+';'+str(variant[attribute][infokey])
-
-                elif type(attribute) is list:
-                    output_line[json_to_hbase[attribute]] = ';'.join(str(value) for value in variant[attribute])
-                else:
-                    output_line[json_to_hbase[attribute]] = str(variant[attribute])
-
-            # We generate the line
-            o.write(json.dumps(output_line)+'\n')
-        f.close()
-        o.close()
-
-        status = "succeeded"
+                i += 1
+                if i % 100 == 0:
+                    tmpf = open('superhello.txt','a')
+                    tmpf.write('Converter for line '+str(i)+': '+str(time.time()-st)+' > len dict: '+str(len(data))+'\n')
+                    tmpf.close()
+                # We finally write the avro file
+                writer.append(data)
+                #supertmp.write(json.dumps(data)+'\n')
+            h.close()
+            writer.close()
+            status = "succeeded"
+        supertmp.close()
         return(status)
 
     def getMappingJsonToText(self):
