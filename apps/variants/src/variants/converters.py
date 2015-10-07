@@ -21,6 +21,7 @@ import json
 import time
 from hbase.api import HbaseApi
 from django.db import connections
+from django.db import connection
 
 class formatConverters(object):
     previous_gonl = {}
@@ -79,11 +80,16 @@ class formatConverters(object):
             raise ValueError(msg)
 
         try:
-            db_cursor = self.connect_to_db()
+            db_cursor = self.connect_to_db(request)
         except Exception as e:
             db_cursor = None
+
+            infos = []
+            for dbname in connections:
+                infos.append(dbname)
+
             tmpf = open('errors.txt','a')
-            tmpf.write("Error to access the cgs_annotations database: "+str(e)+"\n")
+            tmpf.write("Error to access the cgs_annotations database: "+str(e)+" ("+str(infos)+")\n")
             tmpf.close()
 
         mapping = self.getMappingPyvcfToJson()
@@ -132,6 +138,9 @@ class formatConverters(object):
                 linedics[rk]['variants.variantSetId'] = analysis+'|'+initial_file
 
                 """ Start annotations """
+                gonl = {}
+                dbn = {}
+                dbsnv = {}
                 if db_cursor is not None:
                     chromosome = record.CHROM
                     position = record.POS
@@ -142,10 +151,6 @@ class formatConverters(object):
                     dbn = self.annotate_with_dbn(db_cursor, chromosome, position, reference, alternate)
                     dbsnv = self.annotate_with_dbsnv(db_cursor, chromosome, position, reference, alternate)
                     #chr = self.annotate_with_chr(db_cursor, linedic['variants.referenceName'], linedic['variants.start'], linedic['variants.referenceBases'], linedic['variants.calls[]']['genotype[]'])
-                else:
-                    gonl = {}
-                    dbn = {}
-                    dbsnv = {}
                 """ End annotations """
 
                 # Now we map each additional data depending on the configuration
@@ -269,25 +274,60 @@ class formatConverters(object):
         if len(self.previous_gonl) > 0 and self.previous_gonl['chr'] == chromosome and self.previous_gonl['position'] == position and self.previous_gonl['reference'] == reference and self.previous_gonl['alternative'] == alternate:
             return self.previous_gonl
 
-        self.previous_gonl = dictfetchall(cursor.execute('SELECT * FROM gonl_chr'+str(chromosome)+' WHERE pos="'+position+'" AND reference="'+reference+'" AND alternative="'+alternate+'"'))
+        try:
+            if chromosome == 'X' or chromosome == 'Y':
+                cursor.execute('SELECT * FROM gonl_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND ref="'+reference+'" AND alt="'+alternate+'"')
+            else:
+                cursor.execute('SELECT * FROM gonl_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND reference="'+reference+'" AND alternative="'+alternate+'"')
+            self.previous_gonl = self.dictfetchall(cursor)
+            self.previous_gonl = self.previous_gonl[0]
+        except Exception as e:
+            """
+            tmpf = open('errors.txt','a')
+            tmpf.write("Error to get annotations from gonl: "+str(e)+"\n")
+            tmpf.close()
+            """
+            self.previous_gonl = {}
+
         return self.previous_gonl
 
     def annotate_with_dbn(self, cursor, chromosome, position, reference, alternate):
         if len(self.previous_dbn) > 0 and self.previous_dbn['chr'] == chromosome and self.previous_dbn['position'] == position and self.previous_dbn['alternative'] == alternate:
             return self.previous_dbn
 
-        self.previous_dbn = dictfetchall(cursor.execute('SELECT * FROM dbnsfp_chr'+str(chromosome)+' WHERE pos="'+position+'" AND alternative="'+alternate+'"'))
+        try:
+            cursor.execute('SELECT * FROM dbnsfp_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND alt="'+alternate+'"')
+            self.previous_dbn = self.dictfetchall(cursor)
+            self.previous_dbn = self.previous_dbn[0]
+        except Exception as e:
+            """
+            tmpf = open('errors.txt','a')
+            tmpf.write("Error to get annotations from dbnsfp: "+str(e)+"\n")
+            tmpf.close()
+            """
+            self.previous_dbn = {}
+
         return self.previous_dbn
 
     def annotate_with_dbsnv(self, cursor, chromosome, position, reference, alternate):
         if len(self.previous_dbsnv) > 0 and self.previous_dbsnv['chr'] == chromosome and self.previous_dbsnv['position'] == position and self.previous_dbsnv['alternative'] == alternate:
             return self.previous_dbsnv
+        try:
+            cursor.execute('SELECT * FROM dbsnv_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND alt="'+alternate+'"')
+            self.previous_dbsnv = self.dictfetchall(cursor)
+            self.previous_dbsnv = self.previous_dbsnv[0]
+        except Exception as e:
+            """
+            tmpf = open('errors.txt','a')
+            tmpf.write("Error to get annotations from dbsnv: "+str(e)+"\n")
+            tmpf.close()
+            """
+            self.previous_dbsnv = {}
 
-        self.previous_dbsnv = dictfetchall(cursor.execute('SELECT * FROM dbsnv_chr'+str(chromosome)+' WHERE pos="'+position+'" AND alternative="'+alternate+'"'))
         return self.previous_dbsnv
 
     def annotate_with_chr(self, cursor, chromosome, position, reference, alternate):
-        return dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pos="'+position+'" AND alternative="'+alternate+'"'))
+        return self.dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND alternative="'+alternate+'"'))
 
     def convertHbaseToAvro(self,avscFile = "", add_default=True, modify=True):
         """
@@ -723,8 +763,9 @@ class formatConverters(object):
 
         return mapping
 
-    def connect_to_db(self):
-        return connections['cgs_annotations'].cursor()
+    def connect_to_db(self, request):
+        return connection.cursor() # > returns the default db of hue, not the one we configured in the settings.py
+        #return connections['cgs_annotations'].cursor()
 
     def dictfetchall(self, cursor):
         "Return all rows from a cursor as a dict"

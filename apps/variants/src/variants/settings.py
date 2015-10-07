@@ -34,3 +34,13 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     )
 }
+
+DATABASES = {
+    'default': {},
+    'cgs_annotations': {
+        'NAME': 'cgs_annotations',
+        'ENGINE': 'django.db.backends.mysql',
+        'USER': 'root',
+        'PASSWORD': 'cloudera'
+    },
+}
