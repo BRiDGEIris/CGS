@@ -176,9 +176,9 @@ class VCFSerializer(serializers.Serializer):
 
         # We analyze the vcf, then insert the data inside hbase & impala. We don't wait for the import to finish to return the page
         result['text'] = 'The import started correctly and the data from the vcf should be available soon.'
-        #thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
-        #thr.start()
-        import_of_vcf(request, filename, length)
+        thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
+        thr.start()
+        #import_of_vcf(request, filename, length)
 
         if status == 'succeeded':
             result['status'] = 1
@@ -235,7 +235,7 @@ def import_of_vcf(request, filename, length):
     avro_schema = {}
     with open('myapps/variants/variants.avsc','r') as content_file:
         avro_schema = json.loads(content_file.read())
-        with open('/tmp/cgs_variants.avsc','w') as f:
+        with open('/tmp/cgs_'+tmp_filename+'.avsc','w') as f:
             f.write(json.dumps(avro_schema))
 
     existing_columns = []
@@ -257,10 +257,10 @@ def import_of_vcf(request, filename, length):
             modified_avro_schema = True
 
     if modified_avro_schema is True:
-        with open('/tmp/cgs_variants.avsc','w') as content_file:
+        with open('/tmp/cgs_'+tmp_filename+'.avsc','w') as content_file:
             content_file.write(json.dumps(avro_schema))
 
-        request.fs.create('/user/cgs/cgs_variants.avsc', overwrite=True, data=json.dumps(avro_schema))
+        request.fs.create('/user/cgs/cgs_'+tmp_filename+'.avsc', overwrite=True, data=json.dumps(avro_schema))
 
     # We convert the flat json to hbase (mostly a key mapping)
     st = time.time()
@@ -286,7 +286,7 @@ def import_of_vcf(request, filename, length):
     # We convert the hbase to avro file
     st = time.time()
     convert = formatConverters(input_file='/tmp/cgs_'+tmp_filename+'.hbase',output_file='/tmp/cgs_'+tmp_filename+'.avro',input_type='jsonflat',output_type='avro')
-    status = convert.convertHbaseToAvro(avscFile='/tmp/cgs_variants.avsc')
+    status = convert.convertHbaseToAvro(avscFile='/tmp/cgs_'+tmp_filename+'.avsc')
 
     ftmp = open('/tmp/cgs_superhello.txt','a')
     ftmp.write('Conversion from hbase to avro... '+str(time.time()-st)+'\n')
@@ -381,8 +381,11 @@ def import_of_vcf(request, filename, length):
     ftmp.close()
 
     # We delete the temporary file previously created on this node
-    #os.remove('/tmp/cgs_'+tmp_filename+'.json')
-    #os.remove('/tmp/cgs_'+tmp_filename+'.avro')
+    os.remove('/tmp/cgs_'+tmp_filename+'.avsc')
+    os.remove('/tmp/cgs_'+tmp_filename+'.vcf')
+    os.remove('/tmp/cgs_'+tmp_filename+'.json')
+    os.remove('/tmp/cgs_'+tmp_filename+'.avro')
+    os.remove('/tmp/cgs_'+tmp_filename+'.hbase')
 
     return True
 
