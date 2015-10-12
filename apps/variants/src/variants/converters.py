@@ -22,6 +22,7 @@ import time
 from hbase.api import HbaseApi
 from django.db import connections
 from django.db import connection
+import settings
 
 class formatConverters(object):
     previous_gonl = {}
@@ -301,11 +302,9 @@ class formatConverters(object):
             self.previous_gonl = self.dictfetchall(cursor)
             self.previous_gonl = self.previous_gonl[0]
         except Exception as e:
-            """
-            tmpf = open('errors.txt','a')
+            tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to get annotations from gonl: "+str(e)+"\n")
             tmpf.close()
-            """
             self.previous_gonl = {}
 
         return self.previous_gonl
@@ -319,11 +318,9 @@ class formatConverters(object):
             self.previous_dbn = self.dictfetchall(cursor)
             self.previous_dbn = self.previous_dbn[0]
         except Exception as e:
-            """
-            tmpf = open('errors.txt','a')
+            tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to get annotations from dbnsfp: "+str(e)+"\n")
             tmpf.close()
-            """
             self.previous_dbn = {}
 
         return self.previous_dbn
@@ -336,11 +333,9 @@ class formatConverters(object):
             self.previous_dbsnv = self.dictfetchall(cursor)
             self.previous_dbsnv = self.previous_dbsnv[0]
         except Exception as e:
-            """
-            tmpf = open('errors.txt','a')
+            tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to get annotations from dbsnv: "+str(e)+"\n")
             tmpf.close()
-            """
             self.previous_dbsnv = {}
 
         return self.previous_dbsnv
@@ -691,8 +686,23 @@ class formatConverters(object):
         return mapping
 
     def connect_to_db(self, request):
-        return connection.cursor() # > returns the default db of hue, not the one we configured in the settings.py
+
+        #return connection.cursor() # > returns the default db of hue, not the one we configured in the settings.py
         #return connections['cgs_annotations'].cursor()
+
+        database_id = "cgs_annotations"
+        new_database = {}
+        new_database["id"] = database_id
+        new_database["NAME"] = database_id
+        new_database['ENGINE'] = 'django.db.backends.mysql'
+        new_database['USER'] = 'root'
+        new_database['PASSWORD'] = 'cloudera'
+        new_database['HOST'] = ''
+        new_database['PORT'] = ''
+        settings.DATABASES[database_id] = new_database
+        connections.databases[database_id] = new_database
+        return connections['cgs_annotations'].cursor()
+
 
     def dictfetchall(self, cursor):
         "Return all rows from a cursor as a dict"
