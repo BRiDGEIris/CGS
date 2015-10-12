@@ -24,8 +24,7 @@ class VCFSerializer(serializers.Serializer):
             Insert a new vcf file inside the database
         """
         result = {'status': -1,'data': {}}
-        tmpf = open('superhello.txt','w')
-        tmpf.close()
+
         # We take the files in the current user directory
         init_path = directory_current_user(request)
         files = list_directory_content(request, init_path, ".vcf", True)
@@ -93,9 +92,6 @@ class VCFSerializer(serializers.Serializer):
             result['status'] = 0
             result['error'] = 'Sorry, an error occured: Impossible to connect to the db.'
             return result
-
-        hbaseApi = HbaseApi(user=request.user)
-        currentCluster = hbaseApi.getClusters().pop()
 
         # Now we analyze each sample information
         try:
@@ -207,39 +203,39 @@ def import_of_vcf(request, filename, length):
 
     # To analyze the content of the vcf, we need to get it from the hdfs to this node
     buffer = min(length,1024*1024*512)
-    tmp_filename = 'cgs_import_'+request.user.username+'.vcf'
-    f = open(tmp_filename,mode='w')
+    tmp_filename = 'import_'+request.user.username+'_'+str(int(time.time()))
+    f = open('/tmp/cgs_'+tmp_filename+'.vcf',mode='w')
     for offset in xrange(0, length, buffer):
         tmp_vcf = request.fs.read(path='/user/'+request.user.username+'/'+filename, offset=offset, length=buffer, bufsize=buffer)
         f.write(tmp_vcf)
     f.close()
 
     # Now we try to analyze the vcf a little bit more with the correct tool
-    json_filename = tmp_filename+'.cgs.json'
     st = time.time()
-    convert = formatConverters(input_file=tmp_filename,output_file=json_filename,input_type='vcf',output_type='jsonflat')
+    convert = formatConverters(input_file='/tmp/cgs_'+tmp_filename+'.vcf',output_file='/tmp/cgs_'+tmp_filename+'.json',input_type='vcf',output_type='jsonflat')
     status, columns, ids_of_samples, rowkeys = convert.convertVcfToFlatJson(request=request, initial_file=filename)
-    f = open('superhello.txt','w')
+    f = open('/tmp/cgs_superhello.txt','w')
     f.write('EXECUTION TIME to flat json:'+str(time.time()-st)+'\n')
     f.close()
 
     # We put the output on hdfs
-    json_size = os.path.getsize(json_filename)
+    json_size = os.path.getsize('/tmp/cgs_'+tmp_filename+'.json')
     buffer = min(json_size, 1024*1024*50)
     st = time.time()
-    with open(json_filename, 'r') as content_file:
-        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename, overwrite=True, data='')
+    with open('/tmp/cgs_'+tmp_filename+'.json', 'r') as content_file:
+        request.fs.create('/user/cgs/'+tmp_filename+'.json', overwrite=True, data='')
         for offset in xrange(0, json_size, buffer):
-            ftmp = open('superhello.txt','a')
-            ftmp.write('Pushing flatjson to hdfs (/user/cgs/cgs_'+request.user.username+'_'+json_filename+')... '+str(time.time()-st)+'\n')
+            ftmp = open('/tmp/cgs_superhello.txt','a')
+            ftmp.write('Pushing flatjson to hdfs (/user/cgs/'+tmp_filename+')... '+str(time.time()-st)+'\n')
             ftmp.close()
-            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename, data=content_file.read(buffer))
+            request.fs.append('/user/cgs/'+tmp_filename+'.json', data=content_file.read(buffer))
 
-    # We eventually modify the avsc file with the new calls
+    # We eventually modify the avsc file with the new calls (well, in fact, we get the basic schema
+    # and we will data from the existing db)
     avro_schema = {}
     with open('myapps/variants/variants.avsc','r') as content_file:
         avro_schema = json.loads(content_file.read())
-        with open('variants.avsc','w') as f:
+        with open('/tmp/cgs_variants.avsc','w') as f:
             f.write(json.dumps(avro_schema))
 
     existing_columns = []
@@ -261,64 +257,57 @@ def import_of_vcf(request, filename, length):
             modified_avro_schema = True
 
     if modified_avro_schema is True:
-        with open('variants.avsc','w') as content_file:
+        with open('/tmp/cgs_variants.avsc','w') as content_file:
             content_file.write(json.dumps(avro_schema))
 
         request.fs.create('/user/cgs/cgs_variants.avsc', overwrite=True, data=json.dumps(avro_schema))
 
     # We convert the flat json to hbase (mostly a key mapping)
     st = time.time()
-    convert = formatConverters(input_file=json_filename,output_file=json_filename+'.hbase',input_type='jsonflat',output_type='hbase')
+    convert = formatConverters(input_file='/tmp/cgs_'+tmp_filename+'.json',output_file='/tmp/cgs_'+tmp_filename+'.hbase',input_type='jsonflat',output_type='hbase')
     status = convert.convertFlatJsonToHbase()
-    ftmp = open('superhello.txt','a')
+    ftmp = open('/tmp/cgs_superhello.txt','a')
     ftmp.write('Conversion from flatjson to hbase... '+str(time.time()-st)+'\n')
     ftmp.close()
 
     # We put the hbase file on hdfs
-    hbase_length = os.path.getsize(json_filename+'.hbase')
+    hbase_length = os.path.getsize('/tmp/cgs_'+tmp_filename+'.hbase')
     buffer = min(hbase_length,1024*1024*50)
     st = time.time()
-    with open(json_filename+'.hbase', 'r') as content_file:
-        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', overwrite=True, data='')
+    with open('/tmp/cgs_'+tmp_filename+'.hbase', 'r') as content_file:
+        request.fs.create('/user/cgs/'+tmp_filename+'.hbase', overwrite=True, data='')
         for offset in xrange(0, hbase_length, buffer):
             cont = content_file.read(buffer)
-            ftmp = open('superhello.txt','a')
-            ftmp.write('Pushing hbase to hdfs (/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase)... '+str(time.time()-st)+'\n')
+            ftmp = open('/tmp/cgs_superhello.txt','a')
+            ftmp.write('Pushing hbase to hdfs (/user/cgs/'+tmp_filename+'.hbase)... '+str(time.time()-st)+'\n')
             ftmp.close()
-            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.hbase', data=cont)
+            request.fs.append('/user/cgs/'+tmp_filename+'.hbase', data=cont)
 
     # We convert the hbase to avro file
     st = time.time()
-    convert = formatConverters(input_file=json_filename+'.hbase',output_file=json_filename+'.avro',input_type='jsonflat',output_type='avro')
-    status = convert.convertHbaseToAvro(avscFile='variants.avsc')
+    convert = formatConverters(input_file='/tmp/cgs_'+tmp_filename+'.hbase',output_file='/tmp/cgs_'+tmp_filename+'.avro',input_type='jsonflat',output_type='avro')
+    status = convert.convertHbaseToAvro(avscFile='/tmp/cgs_variants.avsc')
 
-    ftmp = open('superhello.txt','a')
+    ftmp = open('/tmp/cgs_superhello.txt','a')
     ftmp.write('Conversion from hbase to avro... '+str(time.time()-st)+'\n')
     ftmp.close()
 
     # We put the avro file on hdfs
     st = time.time()
-    avro_length = os.path.getsize(json_filename+'.avro')
+    avro_length = os.path.getsize('/tmp/cgs_'+tmp_filename+'.avro')
     buffer = min(avro_length, 1024*1024*50)
-    with open(json_filename+'.avro', 'r') as content_file:
-        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', overwrite=True, data='')
-        request.fs.create('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', overwrite=True, data='')
+    with open('/tmp/cgs_'+tmp_filename+'.avro', 'r') as content_file:
+        request.fs.create('/user/cgs/'+tmp_filename+'.avro', overwrite=True, data='')
+        request.fs.create('/user/cgs/'+tmp_filename+'.archive.avro', overwrite=True, data='')
         for offset in xrange(0, avro_length, buffer):
             cont = content_file.read(buffer)
-            ftmp = open('superhello.txt','a')
-            ftmp.write('Pushing avro to hdfs (/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro)... '+str(time.time()-st)+'\n')
+            ftmp = open('/tmp/cgs_superhello.txt','a')
+            ftmp.write('Pushing avro to hdfs (/user/cgs/'+tmp_filename+'.avro)... '+str(time.time()-st)+'\n')
             ftmp.close()
-            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.avro', data=cont)
-            request.fs.append('/user/cgs/cgs_'+request.user.username+'_'+json_filename+'.archive.avro', data=cont)
+            request.fs.append('/user/cgs/'+tmp_filename+'.avro', data=cont)
+            request.fs.append('/user/cgs/'+tmp_filename+'.archive.avro', data=cont)
 
-    """ For test only ""
-    convert = formatConverters(input_file='myapps/variants/twitter-content.json',output_file='tmp.avro',input_type='jsonflat',output_type='avro')
-    status = convert.convertHbaseToAvro(avscFile='myapps/variants/twitter.avsc',modify=False)
-    with open('tmp.avro', 'r') as content_file:
-        request.fs.create('/user/cgs/cgs_twitter.avro', overwrite=True, data=content_file.read())
-    "" End test """
-
-    tmpf = open('superhello.txt','a')
+    tmpf = open('/tmp/cgs_superhello.txt','a')
     # O: We get the columns from the parquet table to detect missing columns for the new calls we just created
     query = hql_query("show column stats variants")
     handle = db.execute_and_wait(query, timeout_sec=30.0)
@@ -343,7 +332,7 @@ def import_of_vcf(request, filename, length):
     st = time.time()
     result, variants_table = database_create_variants(request, temporary=True, specific_columns=specific_columns)
 
-    tmpf = open('superhello.txt','a')
+    tmpf = open('/tmp/cgs_superhello.txt','a')
     # 2nd: we import the previously created avro file inside the temporary avro table
     query_server = get_query_server_config(name='hive')
     hive_db = dbms.get(request.user, query_server=query_server)
@@ -351,7 +340,7 @@ def import_of_vcf(request, filename, length):
     for variants_column in variants_table:
         variants_columns.append(str(variants_column).split(' ').pop(0))
 
-    query = hql_query("load data inpath '/user/cgs/cgs_"+request.user.username+"_"+json_filename+".avro' into table variants_tmp_"+request.user.username+";")
+    query = hql_query("load data inpath '/user/cgs/"+tmp_filename+".avro' into table variants_tmp_"+request.user.username+";")
     handle = hive_db.execute_and_wait(query, timeout_sec=3600.0)
 
     # Necessary for impala to detect an hive table
@@ -370,13 +359,13 @@ def import_of_vcf(request, filename, length):
     # 5th: we delete the temporary table
     #query = hql_query("drop table variants_tmp_"+request.user.username+";")
     #handle = hive_db.execute_and_wait(query, timeout_sec=30.0)
-    ftmp = open('superhello.txt','a')
+    ftmp = open('/tmp/cgs_superhello.txt','a')
     ftmp.write('Creation of temporary table, import to global variants table (parquet): '+str(time.time()-st)+'\n')
     ftmp.close()
 
     st = time.time()
     # We put the data in HBase. For now we do it simply, but we should use the bulk upload (TODO)
-    with open(json_filename+'.hbase', 'r') as content_file:
+    with open('/tmp/cgs_'+tmp_filename+'.hbase', 'r') as content_file:
         for line in content_file:
             # We create the json content
             hbase_data = json.loads(line)
@@ -386,27 +375,14 @@ def import_of_vcf(request, filename, length):
 
             # We can save the new variant
             hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
-            """
-            try:
-                # We create the json content
-                hbase_data = json.loads(line)
-                rowkey = hbase_data['rowkey']
-                del hbase_data['rowkey']
-                del hbase_data['pk']
 
-                # We can save the new variant
-                hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
-            except Exception as e:
-                fprint("Error while reading the HBase json file")
-                tmpf.write('Error ('+str(e.message)+'):/.')
-            """
-    ftmp = open('superhello.txt','a')
+    ftmp = open('/tmp/cgs_superhello.txt','a')
     ftmp.write('Import into HBase: '+str(time.time()-st)+'\n')
     ftmp.close()
 
     # We delete the temporary file previously created on this node
-    os.remove(tmp_filename)
-    os.remove(json_filename)
+    #os.remove('/tmp/cgs_'+tmp_filename+'.json')
+    #os.remove('/tmp/cgs_'+tmp_filename+'.avro')
 
     return True
 

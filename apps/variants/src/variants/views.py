@@ -387,7 +387,7 @@ def current_line():
 def fprint(txt):
     """ Print some text in a debug file """
     try:
-        f = open('debug.txt', 'a')
+        f = open('/tmp/cgs_debug.txt', 'a')
         f.write("Line: "+str(current_line)+" in views.py: "+str(txt)+"\n")
         f.close()
     except:

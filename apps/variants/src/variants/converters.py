@@ -88,7 +88,7 @@ class formatConverters(object):
             for dbname in connections:
                 infos.append(dbname)
 
-            tmpf = open('errors.txt','a')
+            tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to access the cgs_annotations database: "+str(e)+" ("+str(infos)+")\n")
             tmpf.close()
 
@@ -423,7 +423,6 @@ class formatConverters(object):
                 columns_lookup[field['name']] = 'null'
 
         status = "failed"
-        supertmp = open('variants.hbase','w')
         if avscFile == "":
             msg = "This feature is not yet implemented. Please provide an AVRO schema file (.avsc)."
             raise ValueError(msg)
@@ -450,7 +449,7 @@ class formatConverters(object):
 
                 i += 1
                 if i % 100 == 0:
-                    tmpf = open('superhello.txt','a')
+                    tmpf = open('/tmp/cgs_superhello.txt','a')
                     tmpf.write('Converter for line '+str(i)+': '+str(time.time()-st)+' > len dict: '+str(len(data))+'\n')
                     tmpf.close()
                 # We finally write the avro file
@@ -459,7 +458,6 @@ class formatConverters(object):
             h.close()
             writer.close()
             status = "succeeded"
-        supertmp.close()
         return(status)
 
     def getMappingJsonToText(self):

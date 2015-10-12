@@ -8,7 +8,7 @@ from hadoop.fs.hadoopfs import Hdfs
 
 def fprint(txt):
     """ Print some text in a debug file """
-    f = open('debug.txt', 'a')
+    f = open('/tmp/cgs_debug.txt', 'a')
     f.write(str(txt)+"\n")
     f.close()
     return True
