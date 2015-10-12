@@ -115,140 +115,159 @@ class formatConverters(object):
                     # We are not fetching a variant, so we can skip the information...
                     continue
 
-                # Each variant line in the db is linked to a specific ALT, not multiple
-                tmp = s.gt_bases.split('|')
-                if str(record.REF) == tmp[0]:
-                    current_alt = tmp[1]
-                else:
-                    current_alt = tmp[0]
-                rk = current_alt
-                linedics[rk] = {}
+                if len(record.ALT) > 2:
+                    # For now the code only works with maximum 2 different ALTs (maybe it would be
+                    # easy to modify for more, but not tested)
+                    continue
 
-                linedics[rk]['variants.filters[]'] = record.FILTER
-                linedics[rk]['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
+                for alt_iteration in xrange(0,2):
+                    """
+                        Complicate to take care of variants structured like "1/2", so we do it like Highlander:
+                        1   10177   rs367896724 A   C,T 100 PASS    AC=3,2  GT 0/1 1/2 1/2
+                        Becomes:
+                        1   10177   rs367896724 A   C 100 PASS    AC=1  GT 0/1 (sample 1)
+                        1   10177   rs367896724 A   C 100 PASS    AC=1  GT 0/1 (sample 2)
+                        1   10177   rs367896724 A   T 100 PASS    AC=1  GT 0/1 (sample 2)
+                        1   10177   rs367896724 A   C 100 PASS    AC=1  GT 0/1 (sample 3)
+                        1   10177   rs367896724 A   T 100 PASS    AC=1  GT 0/1 (sample 3)
+                        So, sometimes, one raw line of variant might generate multiple lines in the db.
+                    """
+                    tmp = s.gt_bases.split('|')
 
-                linedics[rk]['variants.alternateBases[]'] = str(current_alt)
-                linedics[rk]['variants.calls[]']['genotype[]'] = str(current_alt)
-
-                # We get the common data for all the samples
-                if hasattr(s.data,'DP'):
-                    linedics[rk]['variants.calls[]']['info{}']['read_depth'] = s.data.DP
-                else:
-                    linedics[rk]['variants.calls[]']['info{}']['read_depth'] = "NA"
-                linedics[rk]['variants.variantSetId'] = analysis+'|'+initial_file
-
-                """ Start annotations """
-                gonl = {}
-                dbn = {}
-                dbsnv = {}
-                if db_cursor is not None:
-                    chromosome = record.CHROM
-                    position = record.POS
-                    reference = record.REF
-                    alternate = current_alt
-
-                    gonl = self.annotate_with_gonl(db_cursor, chromosome, position, reference, alternate)
-                    dbn = self.annotate_with_dbn(db_cursor, chromosome, position, reference, alternate)
-                    dbsnv = self.annotate_with_dbsnv(db_cursor, chromosome, position, reference, alternate)
-                    #chr = self.annotate_with_chr(db_cursor, linedic['variants.referenceName'], linedic['variants.start'], linedic['variants.referenceBases'], linedic['variants.calls[]']['genotype[]'])
-                """ End annotations """
-
-                # Now we map each additional data depending on the configuration
-                for pyvcf_parameter in mapping:
-
-                    if mapping[pyvcf_parameter] == 'variants.calls[]' or mapping[pyvcf_parameter] == 'variants.calls[].info{}':
+                    if tmp[alt_iteration] == record.REF or (alt_iteration == 1 and tmp[0] == tmp[1]):
+                        # Nothing to do in that case
                         continue
+                    current_alt = tmp[alt_iteration]
 
-                    # We detect how to take the information from PyVCF, then we take it
-                    if pyvcf_parameter == 'Record.ALT':
-                        value = '|'.join([str(a) for a in record.ALT])
-                    elif pyvcf_parameter.startswith('Record.INFO'):
-                        field = pyvcf_parameter.split('.')
-                        try:
-                            value = record.INFO[field.pop()]
-                        except:
-                            value = ""
-                    elif pyvcf_parameter.startswith('Record'):
-                        field = pyvcf_parameter.split('.')
-                        try:
-                            value = str(getattr(record, field.pop()))
-                        except:
-                            value = ""
-
-                        if value is None:
-                            value = ""
-                    elif pyvcf_parameter.startswith('Call'):
-                        field = pyvcf_parameter.split('.')
-                        try:
-                            value = str(getattr(s, field.pop()))
-                        except:
-                            value = ""
-
-                        if value is None:
-                            value = ""
-                    elif pyvcf_parameter.startswith('gonl.'):
-                        field = pyvcf_parameter.split('.').pop()
-
-                        if field in gonl:
-                            value = gonl[field]
-                        else:
-                            value = ""
-                    elif pyvcf_parameter.startswith('dbnsfp.'):
-                        field = pyvcf_parameter.split('.').pop()
-
-                        if field in dbn:
-                            value = dbn[field]
-                        else:
-                            value = ""
-                    elif pyvcf_parameter.startswith('dbsnv.'):
-                        field = pyvcf_parameter.split('.').pop()
-
-                        if field in dbsnv:
-                            value = dbsnv[field]
-                        else:
-                            value = ""
-                    else:
-                        value = ""
-                        print("Parameter '"+pyvcf_parameter+"' not supported.")
-
-                    # Now we decide how to store the information in json
-                    if mapping[pyvcf_parameter] == 'variants.alternateBases[]':
+                    # We may need to modify some information for the variant if we 'cut' one variant in two
+                    if tmp[0] != tmp[1] and tmp[0] != record.REF and tmp[1] != record.REF:
+                        # TODO
+                        # Modify AC & AF (not needed in fact, well not sure) maybe other things
                         pass
-                    elif mapping[pyvcf_parameter] == 'variants.calls[].genotype[]':
-                        tmp = s.gt_bases.split('|')
-                        if str(record.REF) == tmp[0]:
-                            current_alt = tmp[1]
-                        else:
-                            current_alt = tmp[0]
-                        linedics[rk]['variants.calls[]']['genotype[]'] = current_alt
-                    elif mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
-                        tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}.')
-                        linedics[rk]['variants.calls[]']['info{}'][tmp[1]] = value
-                    elif mapping[pyvcf_parameter].startswith('variants.calls[].'):
-                        tmp = mapping[pyvcf_parameter].split('variants.calls[].')
-                        if tmp[1] != 'info{}':
-                            linedics[rk]['variants.calls[]'][tmp[1]] = value
+
+                    rk = current_alt
+                    linedics[rk] = {}
+
+                    linedics[rk]['variants.filters[]'] = record.FILTER
+                    linedics[rk]['variants.calls[]'] = {'info{}':{},'genotypeLikelihood[]':[],'genotype[]':[]}
+
+                    linedics[rk]['variants.alternateBases[]'] = str(current_alt)
+                    linedics[rk]['variants.calls[]']['genotype[]'] = str(current_alt)
+
+                    # We get the common data for all the samples
+                    if hasattr(s.data,'DP'):
+                        linedics[rk]['variants.calls[]']['info{}']['read_depth'] = s.data.DP
                     else:
-                        linedics[rk][mapping[pyvcf_parameter]] = value
+                        linedics[rk]['variants.calls[]']['info{}']['read_depth'] = "NA"
+                    linedics[rk]['variants.variantSetId'] = analysis+'|'+initial_file
 
-                # Some information we need to compute ourselves
-                linedics[rk]['variants.calls[]']['callSetId'] = s.sample
-                linedics[rk]['variants.calls[]']['callSetName'] = s.sample
+                    """ Start annotations """
+                    gonl = {}
+                    dbn = {}
+                    dbsnv = {}
+                    if db_cursor is not None:
+                        chromosome = record.CHROM
+                        position = record.POS
+                        reference = record.REF
+                        alternate = current_alt
 
-                # We have to add the sample id for the current sample
-                linedics[rk]['variants.calls[]']['info{}']['sampleId'] = s.sample
+                        gonl = self.annotate_with_gonl(db_cursor, chromosome, position, reference, alternate)
+                        dbn = self.annotate_with_dbn(db_cursor, chromosome, position, reference, alternate)
+                        dbsnv = self.annotate_with_dbsnv(db_cursor, chromosome, position, reference, alternate)
+                        #chr = self.annotate_with_chr(db_cursor, linedic['variants.referenceName'], linedic['variants.start'], linedic['variants.referenceBases'], linedic['variants.calls[]']['genotype[]'])
+                    """ End annotations """
 
-                if linedics[rk]['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
-                    list_of_samples.append(linedics[rk]['variants.calls[]']['info{}']['sampleId'])
+                    # Now we map each additional data depending on the configuration
+                    for pyvcf_parameter in mapping:
 
-                # Before writing the data to the json flat, we need to format them according to the avsc file
-                # and the current sample id
-                rowkey = organization + '|' + analysis + '|' + linedics[rk]['variants.referenceName'] + '|' + linedics[rk]['variants.start'] + '|' + linedics[rk]['variants.referenceBases'] + '|' + linedics[rk]['variants.calls[]']['genotype[]']
-                linedics[rk]['variants.id'] = rowkey
-                linedics[rk]['variants.calls[].'+s.sample] = json.dumps(linedics[rk]['variants.calls[]'])
-                del linedics[rk]['variants.calls[]']
-                if rowkey not in list_of_rowkeys:
-                    list_of_rowkeys.append(rowkey)
+                        if mapping[pyvcf_parameter] == 'variants.calls[]' or mapping[pyvcf_parameter] == 'variants.calls[].info{}':
+                            continue
+
+                        # We detect how to take the information from PyVCF, then we take it
+                        if pyvcf_parameter == 'Record.ALT':
+                            value = '|'.join([str(a) for a in record.ALT])
+                        elif pyvcf_parameter.startswith('Record.INFO'):
+                            field = pyvcf_parameter.split('.')
+                            try:
+                                value = record.INFO[field.pop()]
+                            except:
+                                value = ""
+                        elif pyvcf_parameter.startswith('Record'):
+                            field = pyvcf_parameter.split('.')
+                            try:
+                                value = str(getattr(record, field.pop()))
+                            except:
+                                value = ""
+
+                            if value is None:
+                                value = ""
+                        elif pyvcf_parameter.startswith('Call'):
+                            field = pyvcf_parameter.split('.')
+                            try:
+                                value = str(getattr(s, field.pop()))
+                            except:
+                                value = ""
+
+                            if value is None:
+                                value = ""
+                        elif pyvcf_parameter.startswith('gonl.'):
+                            field = pyvcf_parameter.split('.').pop()
+
+                            if field in gonl:
+                                value = gonl[field]
+                            else:
+                                value = ""
+                        elif pyvcf_parameter.startswith('dbnsfp.'):
+                            field = pyvcf_parameter.split('.').pop()
+
+                            if field in dbn:
+                                value = dbn[field]
+                            else:
+                                value = ""
+                        elif pyvcf_parameter.startswith('dbsnv.'):
+                            field = pyvcf_parameter.split('.').pop()
+
+                            if field in dbsnv:
+                                value = dbsnv[field]
+                            else:
+                                value = ""
+                        else:
+                            value = ""
+                            print("Parameter '"+pyvcf_parameter+"' not supported.")
+
+                        # Now we decide how to store the information in json
+                        if mapping[pyvcf_parameter] == 'variants.alternateBases[]':
+                            pass
+                        elif mapping[pyvcf_parameter] == 'variants.calls[].genotype[]':
+                            linedics[rk]['variants.calls[]']['genotype[]'] = current_alt
+                        elif mapping[pyvcf_parameter].startswith('variants.calls[].info{}'):
+                            tmp = mapping[pyvcf_parameter].split('variants.calls[].info{}.')
+                            linedics[rk]['variants.calls[]']['info{}'][tmp[1]] = value
+                        elif mapping[pyvcf_parameter].startswith('variants.calls[].'):
+                            tmp = mapping[pyvcf_parameter].split('variants.calls[].')
+                            if tmp[1] != 'info{}':
+                                linedics[rk]['variants.calls[]'][tmp[1]] = value
+                        else:
+                            linedics[rk][mapping[pyvcf_parameter]] = value
+
+                    # Some information we need to compute ourselves
+                    linedics[rk]['variants.calls[]']['callSetId'] = s.sample
+                    linedics[rk]['variants.calls[]']['callSetName'] = s.sample
+
+                    # We have to add the sample id for the current sample
+                    linedics[rk]['variants.calls[]']['info{}']['sampleId'] = s.sample
+
+                    if linedics[rk]['variants.calls[]']['info{}']['sampleId'] not in list_of_samples:
+                        list_of_samples.append(linedics[rk]['variants.calls[]']['info{}']['sampleId'])
+
+                    # Before writing the data to the json flat, we need to format them according to the avsc file
+                    # and the current sample id
+                    rowkey = organization + '|' + analysis + '|' + linedics[rk]['variants.referenceName'] + '|' + linedics[rk]['variants.start'] + '|' + linedics[rk]['variants.referenceBases'] + '|' + linedics[rk]['variants.calls[]']['genotype[]']
+                    linedics[rk]['variants.id'] = rowkey
+                    linedics[rk]['variants.calls[].'+s.sample] = json.dumps(linedics[rk]['variants.calls[]'])
+                    del linedics[rk]['variants.calls[]']
+                    if rowkey not in list_of_rowkeys:
+                        list_of_rowkeys.append(rowkey)
 
             # We do not do a json.dumps for other columns than variants.calls[], except for variants.info{}
             for rk in linedics:
