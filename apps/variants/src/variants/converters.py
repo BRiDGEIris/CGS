@@ -175,7 +175,6 @@ class formatConverters(object):
                         gonl = self.annotate_with_gonl(db_cursor, chromosome, position, reference, alternate)
                         dbn = self.annotate_with_dbn(db_cursor, chromosome, position, reference, alternate)
                         dbsnv = self.annotate_with_dbsnv(db_cursor, chromosome, position, reference, alternate)
-                        #chr = self.annotate_with_chr(db_cursor, linedic['variants.referenceName'], linedic['variants.start'], linedic['variants.referenceBases'], linedic['variants.calls[]']['genotype[]'])
                     """ End annotations """
 
                     # Now we map each additional data depending on the configuration
@@ -302,9 +301,11 @@ class formatConverters(object):
             self.previous_gonl = self.dictfetchall(cursor)
             self.previous_gonl = self.previous_gonl[0]
         except Exception as e:
+            """
             tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to get annotations from gonl: "+str(e)+"\n")
             tmpf.close()
+            """
             self.previous_gonl = {}
 
         return self.previous_gonl
@@ -318,9 +319,11 @@ class formatConverters(object):
             self.previous_dbn = self.dictfetchall(cursor)
             self.previous_dbn = self.previous_dbn[0]
         except Exception as e:
+            """
             tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to get annotations from dbnsfp: "+str(e)+"\n")
             tmpf.close()
+            """
             self.previous_dbn = {}
 
         return self.previous_dbn
@@ -333,15 +336,14 @@ class formatConverters(object):
             self.previous_dbsnv = self.dictfetchall(cursor)
             self.previous_dbsnv = self.previous_dbsnv[0]
         except Exception as e:
+            """
             tmpf = open('/tmp/cgs_errors.txt','a')
             tmpf.write("Error to get annotations from dbsnv: "+str(e)+"\n")
             tmpf.close()
+            """
             self.previous_dbsnv = {}
 
         return self.previous_dbsnv
-
-    def annotate_with_chr(self, cursor, chromosome, position, reference, alternate):
-        return self.dictfetchall(cursor.execute('SELECT * FROM chr_chr'+str(chromosome)+' WHERE pos='+str(position)+' AND alternative="'+alternate+'"'))
 
     def convertFlatJsonToHbase(self):
         """
