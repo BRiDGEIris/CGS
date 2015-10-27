@@ -345,6 +345,71 @@ class formatConverters(object):
 
         return self.previous_dbsnv
 
+    def convertVariantJsonToFlatJson(self, json_data):
+        """
+            Convert a json to a flat json. Limited mapping.
+        :param json_data:
+        :return:
+        """
+        flatjson = {}
+        for raw_key in json_data:
+            if raw_key == 'calls':
+                if isinstance(json_data[raw_key], list):
+                    for raw_call in json_data[raw_key]:
+                        try:
+                            raw_call_id = raw_call['callSetId']
+                        except:
+                            continue
+
+                        # As we have the id of the call, we can now store the data correctly
+                        flatjson['variants.calls[].'+raw_call_id.lower()] = json.dumps(raw_call)
+                else:
+                    print('Invalid data for calls')
+            elif isinstance(json_data[raw_key], dict):
+                if raw_key == 'info':
+                    for info_key in json_data[raw_key]:
+                        if isinstance(json_data[raw_key], list):
+                            flatjson['variants.info{}.'+info_key] = '|'.join(json_data[raw_key])
+                        else:
+                            flatjson['variants.info{}.'+info_key] = json_data[raw_key]
+                else:
+                    print('Invalid data for variants (only "info" is a dict)')
+            elif isinstance(json_data[raw_key], list):
+                flatjson['variants.'+raw_key+'[]'] = '|'.join(json_data[raw_key])
+            else:
+                flatjson['variants.'+raw_key] = json_data[raw_key]
+
+        return flatjson
+
+    def convertVariantFlatJsonToHbase(self, original_data, modified_data):
+        """
+            Convert a flatjson object to HBase (to later insert the data)
+            It is called to update a variant, so we only allow to modify some specific fields (in the info field)
+            It would take too much time to allow any field (and that would mess the storage of data... Especially the calls)
+            > We do it as Google Genomics in fact, they don't bother to allow to modify other fields...
+        :return:
+        """
+
+        # Now we can do the mapping (only the info field is allowed to be changed)
+        mapping = self.getMappingJsonToHBase()
+        result = {}
+        for json_map in mapping:
+            hbase_map = mapping[json_map]
+
+            if json_map.startswith('variants.info'):
+                # The value can be modified
+                if json_map in modified_data:
+                    result[hbase_map] = modified_data[json_map]
+                if json_map in original_data:
+                    result[hbase_map] = original_data[json_map]
+
+            # If there is no value, maybe we should load the previous value
+            if hbase_map not in result:
+                if json_map in original_data:
+                    result[hbase_map] = original_data[json_map]
+
+        return result
+
     def convertFlatJsonToHbase(self):
         """
             Convert a flat json file to an hbase json file. It's mostly a key mapping so nothing big

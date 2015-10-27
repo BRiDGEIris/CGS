@@ -176,9 +176,9 @@ class VCFSerializer(serializers.Serializer):
 
         # We analyze the vcf, then insert the data inside hbase & impala. We don't wait for the import to finish to return the page
         result['text'] = 'The import started correctly and the data from the vcf should be available soon.'
-        thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
-        thr.start()
-        #import_of_vcf(request, filename, length)
+        #thr = threading.Thread(target=import_of_vcf, args=(request, filename, length), kwargs={})
+        #thr.start()
+        import_of_vcf(request, filename, length)
 
         if status == 'succeeded':
             result['status'] = 1
@@ -615,32 +615,23 @@ class VariantSerializer(serializers.Serializer):
 
             self.is_valid()
 
-    def post(self, request):
-        # Insert a new variant inside the database (Impala - HBase)
+    def put(self, request, original_variant, pk):
+        # Allow to modify a variant in HBase/Impala
 
-        # TODO: this method is OBSOLETE and will not work
-        # TODO: it would be great to move the ';'.join() and json.dumps() to converters.py
+        f = open('/tmp/superhello.txt','w')
+        f.write(json.dumps(request.data))
+        f.close()
 
-        # Impala - We create the query to put the data
-        query_data = ["" for i in range(dbmap_length()+1)]
+        # We convert the original and modified data to flatjson
+        fc = formatConverters(input_file='stuff.json',output_file='stuff.json')
+        original_flatjson = fc.convertVariantJsonToFlatJson(json_data=original_variant)
+        modified_flatjson = fc.convertVariantJsonToFlatJson(json_data=request.data)
 
-        query_data[0] = self.variantSetId + '-' + self.referenceName + '-' + self.start + '-' + self.referenceBases + '-' + self.alternateBases
+        # We convert the data to hbase, and we modify directly some fields (note: the keys are almost the same for hbase and impala)
+        hbase_data = fc.convertVariantFlatJsonToHbase(original_data=original_flatjson,modified_data=modified_flatjson)
 
-        query_data[dbmap('variants.variantSetId', order=True)] = self.variantSetId
-        query_data[dbmap('variants.id', order=True)] = self.id
-        query_data[dbmap('variants.names[]', order=True)] = ';'.join(self.names)
-        query_data[dbmap('variants.created', order=True)] = self.created
-        query_data[dbmap('variants.referenceName', order=True)] = self.created
-        query_data[dbmap('variants.start', order=True)] = self.start
-        query_data[dbmap('variants.end', order=True)] = self.end
-        query_data[dbmap('variants.referenceBases', order=True)] = self.referenceBases
-        query_data[dbmap('variants.alternateBases[]', order=True)] = ';'.join(self.alternateBases)
-        query_data[dbmap('variants.quality', order=True)] = self.quality
-        query_data[dbmap('variants.filters[]', order=True)] = ';'.join(self.filter)
-        query_data[dbmap('variants.info{}', order=True)] = json.dumps(self.info)
-        query_data[dbmap('variants.calls[]', order=True)] = "TODO" # TODO
 
-        # Impala- We make the query
+        # Impala - We make the query
         query_server = get_query_server_config(name='impala')
         db = dbms.get(request.user, query_server=query_server)
         query = hql_query("INSERT INTO variant("+",".join(query_data)+")")
@@ -653,22 +644,7 @@ class VariantSerializer(serializers.Serializer):
         # HBase - We add the data in that table too
         hbaseApi = HbaseApi(user=request.user)
         currentCluster = hbaseApi.getClusters().pop()
-        rowkey = query_data[0]
-        hbase_data = {}
-        query_data[dbmap('variants.variantSetId', database="hbase", order=True)] = self.variantSetId
-        query_data[dbmap('variants.id', database="hbase", order=True)] = self.id
-        query_data[dbmap('variants.names[]', database="hbase", order=True)] = ';'.join(self.names)
-        query_data[dbmap('variants.created', database="hbase", order=True)] = self.created
-        query_data[dbmap('variants.referenceName', database="hbase", order=True)] = self.created
-        query_data[dbmap('variants.start', database="hbase", order=True)] = self.start
-        query_data[dbmap('variants.end', database="hbase", order=True)] = self.end
-        query_data[dbmap('variants.referenceBases', database="hbase", order=True)] = self.referenceBases
-        query_data[dbmap('variants.alternateBases[]', database="hbase", order=True)] = ';'.join(self.alternateBases)
-        query_data[dbmap('variants.quality', database="hbase", order=True)] = self.quality
-        query_data[dbmap('variants.filters[]', database="hbase", order=True)] = ';'.join(self.filter)
-        query_data[dbmap('variants.info{}', database="hbase", order=True)] = json.dumps(self.info)
-        query_data[dbmap('variants.calls[]', database="hbase", order=True)] = "TODO" # TODO
-
+        rowkey = pk
         hbaseApi.putRow(cluster=currentCluster['name'], tableName='variants', row=rowkey, data=hbase_data)
 
 """

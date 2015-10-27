@@ -205,7 +205,7 @@ class VariantDetail(APIView):
     renderer_classes = (JSONRenderer, )
 
     def get(self, request, pk=""):
-        # Returns some information on a specific variant
+        # Returns some information on a specific variant: https://cloud.google.com/genomics/v1beta2/reference/variants/get
         if pk == 'search':
             return self.search(request=request)
         elif pk == 'highlander_search':
@@ -238,6 +238,24 @@ class VariantDetail(APIView):
                 status = 0
 
         return Response({'status':status})
+
+    def put(self, request, pk):
+        # Modify an existing variant: https://cloud.google.com/genomics/v1beta2/reference/variants/update
+
+        # First, we init the original data
+        variant = VariantSerializer(request=request, pk=pk)
+
+        # Now we try to modify some data by using the POST query
+        variant_form = VariantSerializer(data=request.data)
+        if variant_form.is_valid():
+            try:
+                variant_form.post(request)
+                status = 1
+            except:
+                status = 0
+
+        # Finally, we return the result
+        return Response(variant_form.data)
 
     def search(self, request):
         # Search for a specific variant. See https://cloud.google.com/genomics/v1beta2/reference/variants/search
