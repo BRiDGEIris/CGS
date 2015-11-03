@@ -30,10 +30,12 @@ For now, you need to go through additional steps to run this app (not included i
 1. `sudo easy_install pip`
 2. `sudo pip install ordereddict` (if you have python < 2.7)
 3. `sudo pip install counter` (if you have python < 2.7)
-4. Download PyVCF on https://pypi.python.org/pypi/PyVCF, decompress it and go inside the folder
-5. `sudo python setup.py install `
-6. Allow the app to create temporary files (only for dev): `chmod -R 777 /usr/lib/bin/hue`
-7. Initialize the database by going to: http://quickstart.cloudera:8888/variants/database/initialize/
+4. `sudo pip install pyvcf`
+5. `sudo pip install djangorestframework==3.2.5`
+6. `sudo pip install markdown`
+7. `sudo pip install django-filter`
+8. Allow the app to create temporary files (only for dev): `chmod -R 777 /usr/lib/bin/hue`
+9. Initialize the database by going to: http://quickstart.cloudera:8888/variants/database/initialize/
 
 If you have problems with hue permissions, or that installCGSapps.py does not seem to restart the views.py after you modified it, you can try the following command in your virtual machine (not recommended in production, just for debug)
 `find /usr/lib/hue -type d -exec chmod 777 {} \;`
