@@ -398,7 +398,7 @@ class VariantDetail(APIView):
         # We format the results and send them back
         result['variants'] = result_set
         result['nextPageToken'] = last_pk
-
+	result['data-received'] = json.dumps(data)
         return Response(result)
 
     def highlander_search(self, request):
