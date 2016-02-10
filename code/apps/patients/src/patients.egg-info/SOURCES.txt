@@ -1,0 +1,14 @@
+setup.py
+src/patients/__init__.py
+src/patients/forms.py
+src/patients/models.py
+src/patients/settings.py
+src/patients/urls.py
+src/patients/views.py
+src/patients.egg-info/PKG-INFO
+src/patients.egg-info/SOURCES.txt
+src/patients.egg-info/dependency_links.txt
+src/patients.egg-info/entry_points.txt
+src/patients.egg-info/not-zip-safe
+src/patients.egg-info/requires.txt
+src/patients.egg-info/top_level.txt
